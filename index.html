@@ -44,13 +44,13 @@
     // ── FORMATEADOR CLP ─────────────────────────────────────────────────────────
     const fmtCLP = (n) => n?.toLocaleString("es-CL", { style: "currency", currency: "CLP", minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-    // ── COLOR TOKENS PARA RECHARTS ──────────────────────────────────────────────
     const chartColors = {
-      sinPrepago: "#64748b",
-      conPrepago: "#06b6d4",
-      grid: "rgba(255,255,255,0.03)",
+      sinPrepago: "#64748b", // Slate 500
+      conPrepagoPlazo: "#3b82f6", // Blue 500
+      conPrepagoCuota: "#10b981", // Emerald 500
+      grid: "rgba(148,163,184,0.05)",
       text: "#94a3b8",
-      card: "#18181b",
+      card: "#0f172a",
     };
 
     // ── HELPERS FINANCIEROS (Corregidos) ─────────────────────────────────────────
@@ -193,7 +193,7 @@
     );
 
     // ── GRÁFICO (NATIVE CHART.JS) ────────────────────────────────────────────────
-    const GraficoSaldo = ({ evolucionSin, evolucionCon, mesesRestantes, saldoInicial, cr }) => {
+    const GraficoSaldo = ({ evolucionSin, evolucionPlazo, evolucionCuota, mesesRestantes, saldoInicial, cr }) => {
       const chartRef = React.useRef(null);
       const chartInstance = React.useRef(null);
 
@@ -207,7 +207,7 @@
 
         let saldoHist = +cr.capital;
         for (let i = 0; i <= mp; i++) {
-          dataMap[i] = { mes: i, sinPrepago: Math.round(saldoHist), conPrepago: Math.round(saldoHist) };
+          dataMap[i] = { mes: i, sinPrepago: Math.round(saldoHist), conPrepagoPlazo: Math.round(saldoHist), conPrepagoCuota: Math.round(saldoHist) };
           if (i < mp) saldoHist -= Math.min(cuota - saldoHist * r, saldoHist);
         }
 
@@ -217,11 +217,21 @@
           dataMap[m].sinPrepago = Math.round(p.saldo);
         });
 
-        evolucionCon.forEach(p => {
-          const m = p.mes + mp;
-          if (!dataMap[m]) dataMap[m] = { mes: m };
-          dataMap[m].conPrepago = Math.round(p.saldo);
-        });
+        if (evolucionPlazo) {
+          evolucionPlazo.forEach(p => {
+            const m = p.mes + mp;
+            if (!dataMap[m]) dataMap[m] = { mes: m };
+            dataMap[m].conPrepagoPlazo = Math.round(p.saldo);
+          });
+        }
+        
+        if (evolucionCuota) {
+          evolucionCuota.forEach(p => {
+            const m = p.mes + mp;
+            if (!dataMap[m]) dataMap[m] = { mes: m };
+            dataMap[m].conPrepagoCuota = Math.round(p.saldo);
+          });
+        }
 
         const rawData = Object.values(dataMap).sort((a, b) => a.mes - b.mes);
         const labels = rawData.map(d => {
@@ -237,14 +247,18 @@
 
         const ctx = chartRef.current.getContext('2d');
 
-        // Create Gradients for a Premium Corporate Look
+        // Create Gradients for Corporate Look
         const gradSin = ctx.createLinearGradient(0, 0, 0, 400);
-        gradSin.addColorStop(0, 'rgba(100, 116, 139, 0.25)');
+        gradSin.addColorStop(0, 'rgba(100, 116, 139, 0.3)');
         gradSin.addColorStop(1, 'rgba(100, 116, 139, 0.01)');
 
-        const gradCon = ctx.createLinearGradient(0, 0, 0, 400);
-        gradCon.addColorStop(0, 'rgba(6, 182, 212, 0.35)');
-        gradCon.addColorStop(1, 'rgba(6, 182, 212, 0.01)');
+        const gradPlazo = ctx.createLinearGradient(0, 0, 0, 400);
+        gradPlazo.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+        gradPlazo.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
+
+        const gradCuota = ctx.createLinearGradient(0, 0, 0, 400);
+        gradCuota.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+        gradCuota.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
 
         chartInstance.current = new window.Chart(ctx, {
           type: 'line',
@@ -257,25 +271,38 @@
                 borderColor: chartColors.sinPrepago,
                 backgroundColor: gradSin,
                 borderWidth: 2,
-                borderDash: [4, 4],
+                borderDash: [5, 5],
                 fill: true,
                 pointRadius: 0,
                 pointHoverRadius: 6,
                 pointHoverBorderWidth: 3,
-                pointHoverBackgroundColor: '#fff',
+                pointHoverBackgroundColor: '#0f172a', // Corporate dark background
                 tension: 0.4
               },
               {
-                label: 'Con Prepago',
-                data: rawData.map(d => d.conPrepago),
-                borderColor: chartColors.conPrepago,
-                backgroundColor: gradCon,
+                label: 'Reduce Plazo',
+                data: rawData.map(d => d.conPrepagoPlazo),
+                borderColor: chartColors.conPrepagoPlazo,
+                backgroundColor: gradPlazo,
                 borderWidth: 3,
                 fill: true,
                 pointRadius: 0,
-                pointHoverRadius: 7,
+                pointHoverRadius: 8,
                 pointHoverBorderWidth: 3,
-                pointHoverBackgroundColor: '#fff',
+                pointHoverBackgroundColor: '#0f172a', // Corporate dark background
+                tension: 0.4
+              },
+              {
+                label: 'Reduce Cuota',
+                data: rawData.map(d => d.conPrepagoCuota),
+                borderColor: chartColors.conPrepagoCuota,
+                backgroundColor: gradCuota,
+                borderWidth: 3,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 8,
+                pointHoverBorderWidth: 3,
+                pointHoverBackgroundColor: '#0f172a', // Corporate dark background
                 tension: 0.4
               }
             ],
@@ -315,7 +342,7 @@
                 }
               },
               hoyLine: {
-                color: 'var(--accent-amber)',
+                color: 'var(--accent-rose)', // Make the 'Today' line neon rose
                 dash: [4, 4],
                 width: 2
               }
@@ -363,7 +390,7 @@
             chartInstance.current.destroy();
           }
         };
-      }, [evolucionSin, evolucionCon, mesesRestantes, saldoInicial, cr]);
+      }, [evolucionSin, evolucionPlazo, evolucionCuota, mesesRestantes, saldoInicial, cr]);
 
       return (
         <div style={{ height: 350, padding: "10px 0", position: 'relative' }}>
@@ -387,10 +414,10 @@
         const ctx = chartRef.current.getContext('2d');
         const labels = evolucionCuota.map(d => `Año ${d.ano}`);
 
-        // Gradient fill for the prepago bars
+        // Gradient fill for the prepago bars (Corporate Blue)
         const gradCon = ctx.createLinearGradient(0, 0, 0, 400);
-        gradCon.addColorStop(0, 'rgba(16, 185, 129, 0.9)');
-        gradCon.addColorStop(1, 'rgba(16, 185, 129, 0.4)');
+        gradCon.addColorStop(0, 'rgba(59, 130, 246, 0.85)');
+        gradCon.addColorStop(1, 'rgba(59, 130, 246, 0.1)');
 
         // Custom plugin: draw horizontal reference line + value labels on bars
         const refLinePlugin = {
@@ -430,7 +457,7 @@
                 label: 'Cuota con Prepago',
                 data: evolucionCuota.map(d => d.cuotaCon),
                 backgroundColor: gradCon,
-                borderColor: '#10b981',
+                borderColor: '#3b82f6',
                 borderWidth: 0,
                 borderRadius: 6,
                 borderSkipped: false,
@@ -459,7 +486,7 @@
                   boxWidth: 10,
                   generateLabels: () => [
                     { text: 'Cuota Original (fija)', fillStyle: '#f43f5e', strokeStyle: '#f43f5e', lineWidth: 2, lineDash: [6, 4], pointStyle: 'line', fontColor: '#fff' },
-                    { text: 'Cuota con Prepago', fillStyle: 'rgba(16, 185, 129, 0.85)', strokeStyle: '#10b981', lineWidth: 0, pointStyle: 'rect', fontColor: '#fff' }
+                    { text: 'Cuota con Prepago', fillStyle: 'rgba(59, 130, 246, 0.85)', strokeStyle: '#3b82f6', lineWidth: 0, pointStyle: 'rect', fontColor: '#fff' }
                   ]
                 }
               },
@@ -561,17 +588,6 @@
 
       return (
         <div className="animate-fade" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-          {/* ────── INPUTS DEL FRAMEWORK ────── */}
-          <div className="glass-card" style={{ padding: "12px 14px" }}>
-            <div className="section-title">
-              <span style={{ fontSize: 18 }}>⚙️</span> Parámetros Macroeconómicos
-            </div>
-            <div className="grid-2" style={{ gap: 8 }}>
-              <Input label="Inflación Proyectada (π)" value={inflacion} onChange={v => setInflacion(v)} suffix="%" step={0.1} />
-              <Input label="Retorno Inversión (ρ)" value={retornoInv} onChange={v => setRetornoInv(v)} suffix="%" step={0.1} />
-            </div>
-          </div>
 
           <div className="grid-2" style={{ gap: 16 }}>
             {/* ────── MODELO A: PUNTO DE EQUILIBRIO DE INFLACIÓN ────── */}
@@ -709,17 +725,6 @@
 
       return (
         <div className="animate-fade" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-          {/* ────── INPUTS DEL FRAMEWORK ────── */}
-          <div className="glass-card" style={{ padding: "12px 14px" }}>
-            <div className="section-title">
-              <span style={{ fontSize: 18 }}>⚙️</span> Parámetros Macroeconómicos
-            </div>
-            <div className="grid-2" style={{ gap: 8 }}>
-              <Input label="Inflación Proyectada (π)" value={inflacion} onChange={v => setInflacion(v)} suffix="%" step={0.1} />
-              <Input label="Retorno Inversión (ρ)" value={retornoInv} onChange={v => setRetornoInv(v)} suffix="%" step={0.1} />
-            </div>
-          </div>
 
           <div className="grid-2" style={{ gap: 16 }}>
             {/* ────── MODELO C: VALOR PRESENTE NETO ────── */}
@@ -1027,7 +1032,7 @@
             <div className="cover-top-bar"></div>
             <div className="cover-body">
               <div className="cover-eyebrow">Análisis Financiero Confidencial</div>
-              <div className="cover-title">Estrategia de<br/><span>Prepago</span> Hipotecario</div>
+              <div className="cover-title">Estrategia de<br /><span>Prepago</span> Hipotecario</div>
               <div className="cover-subtitle">Evaluación integral de impacto financiero, proyección de ahorro, análisis de sensibilidad y recomendación de estrategia óptima de amortización anticipada según supuestos macroeconómicos.</div>
               <div className="cover-divider"></div>
 
@@ -1770,7 +1775,7 @@
       const initialCr = { capital: 3000, tna: 4.5, plazo: 300, mesesPagados: 36, costoPrepago: "1.5", cae: 4.8 };
       const [cr, setCr] = useState(initialCr);
       const [pr, setPr] = useState({ monto: 100, frecuencia: "anual", mesInicio: initialCr.mesesPagados + 1, destino: "plazo" });
-      const [tab, setTab] = useState("resumen");
+      const [tab, setTab] = useState("datos");
       const [valorUF, setValorUF] = useState(null);
       const [showPrintView, setShowPrintView] = useState(false);
 
@@ -1797,10 +1802,17 @@
       const cuotaBase = cuotaMensual(saldoActual, +cr.tna, mesesRestantes);
       const interesesBase = calcularInteresesTotales(saldoActual, +cr.tna, mesesRestantes);
 
-      const sim = useMemo(() =>
-        simularPrepago(saldoActual, +cr.tna, mesesRestantes, +pr.monto, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, pr.destino, cuotaBase, +cr.costoPrepago),
-        [saldoActual, cr.tna, mesesRestantes, pr.monto, pr.frecuencia, pr.mesInicio, cr.mesesPagados, pr.destino, cuotaBase, cr.costoPrepago]
+      const simPlazo = useMemo(() =>
+        simularPrepago(saldoActual, +cr.tna, mesesRestantes, +pr.monto, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, "plazo", cuotaBase, +cr.costoPrepago),
+        [saldoActual, cr.tna, mesesRestantes, pr.monto, pr.frecuencia, pr.mesInicio, cr.mesesPagados, cuotaBase, cr.costoPrepago]
       );
+
+      const simCuota = useMemo(() =>
+        simularPrepago(saldoActual, +cr.tna, mesesRestantes, +pr.monto, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, "cuota", cuotaBase, +cr.costoPrepago),
+        [saldoActual, cr.tna, mesesRestantes, pr.monto, pr.frecuencia, pr.mesInicio, cr.mesesPagados, cuotaBase, cr.costoPrepago]
+      );
+
+      const sim = useMemo(() => pr.destino === "plazo" ? simPlazo : simCuota, [pr.destino, simPlazo, simCuota]);
 
       const ahorroIntereses = interesesBase - sim.totalIntereses;
       const ahorroNeto = ahorroIntereses - sim.totalMultas;
@@ -1813,11 +1825,12 @@
       const [retornoInv, setRetornoInv] = useState(5.0);
 
       const tabs = [
-        { id: "resumen", label: "RESUMEN" },
-        { id: "grafico", label: "GRÁFICO COMPARATIVO" },
-        { id: "escenario1", label: "ARBITRAJE DE TASAS" },
-        { id: "escenario2", label: "VALORACIÓN & RIESGO" },
-        { id: "comparacion", label: "EVOLUCIÓN CUOTA" }
+        { id: "datos", label: "Datos de Entrada", icon: "⚙️" },
+        { id: "resumen", label: "Dashboard Resumen", icon: "📊" },
+        { id: "grafico", label: "Gráfico Comparativo", icon: "📈" },
+        { id: "escenario1", label: "Arbitraje de Tasas", icon: "⚡" },
+        { id: "escenario2", label: "Valoración & Riesgo", icon: "🎯" },
+        { id: "comparacion", label: "Evolución de Cuota", icon: "💰" }
       ];
 
       if (showPrintView) {
@@ -1848,106 +1861,143 @@
       return (
         <>
           <div className="app-container">
-            <div style={{ textAlign: "center", marginBottom: 12 }}>
-              <h1 className="text-gradient" style={{ fontSize: 24, letterSpacing: "-0.02em", margin: 0 }}>
-                SIMULADOR DE PREPAGO HIPOTECARIO
-              </h1>
-            </div>
-
-            <div className="main-layout">
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", overflowY: "auto", paddingRight: 4 }}>
-                <div className="glass-card" style={{ padding: "12px 14px" }}>
-                  <div className="section-title">
-                    <span style={{ fontSize: 18 }}>🏦</span> Datos del Crédito
-                  </div>
-                  <div className="grid-2" style={{ gap: 8 }}>
-                    <Input label="Monto original" value={cr.capital} onChange={setC("capital")} prefix="UF" min={1} />
-                    <Input label="Tasa (TNA)" value={cr.tna} onChange={setC("tna")} suffix="%" step={0.1} />
-                    <Input label="CAE (Costo Anual Eq.)" value={cr.cae} onChange={setC("cae")} suffix="%" step={0.01} />
-                    <Input label="Plazo total" value={cr.plazo} onChange={setC("plazo")} suffix="meses" />
-                    <Input label="Meses pagados" value={cr.mesesPagados} onChange={setC("mesesPagados")} suffix="meses" />
-                    <div style={{ gridColumn: "1/-1" }}>
-                      <Select label="Costo de Prepago" value={cr.costoPrepago} onChange={setC("costoPrepago")}
-                        options={costosPrepagoOpciones} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="glass-card" style={{ padding: "8px 12px", display: "flex", flexDirection: "column", borderColor: "rgba(245, 158, 11, 0.2)", gap: 8 }}>
-                  <div className="section-title" style={{ color: "var(--accent-amber)" }}>
-                    <span style={{ fontSize: 18 }}>💸</span> Estrategia de Prepago
-                  </div>
-                  <div className="grid-2" style={{ gap: 8 }}>
-                    <Input label="Monto por vez" value={pr.monto} onChange={setP("monto")} prefix="UF" />
-                    <Select label="Frecuencia" value={pr.frecuencia} onChange={setP("frecuencia")}
-                      options={[{ value: "semestral", label: "Semestral" }, { value: "anual", label: "Anual" }]} />
-                    <Input label="Mes de inicio" value={pr.mesInicio} onChange={setP("mesInicio")} suffix="meses" />
-                    <div style={{ gridColumn: "1/-1" }}>
-                      <Select label="Destino del prepago" value={pr.destino} onChange={setP("destino")}
-                        options={[{ value: "plazo", label: "Reducir Plazo (misma cuota, terminas antes)" }, { value: "cuota", label: "Reducir Cuota (mismo plazo, pagas menos)" }]} />
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 8 }}>
-                  <button
-                    onClick={() => setShowPrintView(true)}
-                    style={{
-                      width: "100%",
-                      padding: "16px",
-                      borderRadius: "8px",
-                      background: "var(--accent-indigo)",
-                      color: "white",
-                      border: "none",
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      transition: "all 0.2s"
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
-                    onMouseOut={(e) => e.currentTarget.style.transform = "translateY(0)"}
-                  >
-                    <span style={{ fontSize: "16px" }}>📄 Ver/Imprimir Reporte</span>
-                  </button>
+            <div className="sidebar">
+              <div className="sidebar-header">
+                <h1 className="sidebar-title text-gradient">SIMULADOR HIPOTECARIO</h1>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, fontWeight: 500, marginBottom: 16 }}>
+                  Análisis de Prepago Inteligente
                 </div>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, minHeight: 0, minWidth: 0 }}>
+              <div className="sidebar-inputs" style={{ display: "none" }}>
+              </div>
+
+              <div className="sidebar-nav">
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, paddingLeft: 12 }}>
+                  Vistas de Análisis
+                </div>
+                {tabs.map((t) => (
+                  <button key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className={`sidebar-tab ${tab === t.id ? 'active' : ''}`}
+                  >
+                    <span className="sidebar-tab-icon">{t.icon}</span>
+                    <span style={{ flex: 1 }}>{t.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="sidebar-footer">
+                <button
+                  onClick={() => setShowPrintView(true)}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    borderRadius: "10px",
+                    background: "rgba(99, 102, 241, 0.1)",
+                    color: "var(--accent-indigo)",
+                    border: "1px solid rgba(99, 102, 241, 0.2)",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = "var(--accent-indigo)";
+                    e.currentTarget.style.color = "#fff";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = "rgba(99, 102, 241, 0.1)";
+                    e.currentTarget.style.color = "var(--accent-indigo)";
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>📄</span> Exportar Reporte
+                </button>
+              </div>
+            </div>
+
+            {/* ── ÁREA PRINCIPAL (DERECHA) ── */}
+            <div className="main-area">
+              <div className="main-content-scroll">
+
+                {/* Banner Alerta */}
                 {+pr.monto > 0 && (
-                  <div className={`alert-box ${conviene ? 'alert-success' : 'alert-warning'}`} style={{ flexShrink: 0 }}>
+                  <div className={`alert-box ${conviene ? 'alert-success' : 'alert-warning'}`} style={{ flexShrink: 0, marginBottom: 16 }}>
                     <div className="alert-icon">{conviene ? "🚀" : "⚠️"}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: 1 }}>
                       <div className="alert-title" style={{ marginBottom: 0 }}>
                         {conviene ? "Estrategia Rentable" : "El costo de prepago supera el ahorro"}
                       </div>
                       <div className="alert-desc">
                         {conviene
-                          ? `Estás ahorrando UF ${fmt(ahorroNeto)} netos (ya descontado el costo de prepago de UF ${fmt(sim.totalMultas)}).`
+                          ? `Estás ahorrando UF ${fmt(ahorroNeto)} netos (descontado el costo de prepago de UF ${fmt(sim.totalMultas)}).`
                           : `Tu ahorro en interés no alcanza a cubrir el costo de prepago de UF ${fmt(sim.totalMultas)}.`}
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="glass-card" style={{ padding: "0", overflow: "hidden", display: "flex", flexDirection: "column", borderColor: "rgba(245, 158, 11, 0.2)", flex: 1, minHeight: 0 }}>
-                  <div style={{ padding: "8px 14px 0", borderBottom: "1px solid var(--card-border)" }}>
-                    <div className="tabs" style={{ marginBottom: 8 }}>
-                      {tabs.map((t) => (
-                        <button key={t.id}
-                          onClick={() => setTab(t.id)}
-                          className={`tab-btn ${tab === t.id ? 'active' : ''}`}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
+                {/* Visores Dinámicos */}
+                <div className="glass-card" style={{ flex: 1, display: "flex", flexDirection: "column", padding: 0 }}>
                   <div style={{ padding: "8px 12px", overflowY: "auto" }}>
+                    {tab === "datos" && (
+                      <div className="animate-fade grid-2" style={{ gap: 16 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                          <div className="glass-card" style={{ padding: 16, height: "100%", display: "flex", flexDirection: "column" }}>
+                            <div className="section-title">
+                              <span style={{ fontSize: 18 }}>🏦</span> Datos del Crédito
+                            </div>
+                            <div className="grid-2" style={{ flex: 1, alignContent: "start", rowGap: 16 }}>
+                              <Input label="Monto original" value={cr.capital} onChange={setC("capital")} prefix="UF" min={1} />
+                              <Input label="Tasa (TNA)" value={cr.tna} onChange={setC("tna")} suffix="%" step={0.1} />
+                              <Input label="Plazo total" value={cr.plazo} onChange={setC("plazo")} suffix="meses" />
+                              <Input label="Meses pagados" value={cr.mesesPagados} onChange={setC("mesesPagados")} suffix="meses" />
+                              <Input label="CAE" value={cr.cae} onChange={setC("cae")} suffix="%" step={0.01} />
+                              <div style={{ gridColumn: "1/-1" }}>
+                                <Select label="Costo Prepago" value={cr.costoPrepago} onChange={setC("costoPrepago")}
+                                  options={costosPrepagoOpciones} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+                          <div className="glass-card" style={{ height: "fit-content", borderColor: "rgba(245, 158, 11, 0.2)", padding: 16 }}>
+                            <div className="section-title" style={{ color: "var(--accent-amber)" }}>
+                              <span style={{ fontSize: 18 }}>💸</span> Tu Estrategia
+                            </div>
+                            <div className="grid-2">
+                              <Input label="Monto Prepago" value={pr.monto} onChange={setP("monto")} prefix="UF" />
+                              <Select label="Frecuencia" value={pr.frecuencia} onChange={setP("frecuencia")}
+                                options={[{ value: "semestral", label: "Semestral" }, { value: "anual", label: "Anual" }]} />
+                              <Input label="Inicia en mes" value={pr.mesInicio} onChange={setP("mesInicio")} suffix="meses" />
+                              <div style={{ gridColumn: "1/-1" }}>
+                                <Select label="Destino" value={pr.destino} onChange={setP("destino")}
+                                  options={[{ value: "plazo", label: "Bajar Plazo" }, { value: "cuota", label: "Bajar Cuota" }]} />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="glass-card" style={{ borderColor: "rgba(168, 85, 247, 0.2)", padding: 16 }}>
+                            <div className="section-title" style={{ color: "var(--accent-indigo)" }}>
+                              <span style={{ fontSize: 18 }}>⚙️</span> Macroeconómicos
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                              <Input label="Inflación Proyectada (π)" value={inflacion} onChange={v => setInflacion(v)} suffix="%" step={0.1} />
+                              <Input label="Retorno Inversión (ρ)" value={retornoInv} onChange={v => setRetornoInv(v)} suffix="%" step={0.1} />
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 12, lineHeight: 1.4 }}>
+                              *Variables usadas estocásticamente en los modelos de Arbitraje y VPN.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {tab === "resumen" && (
                       <div className="animate-fade" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         <div>
@@ -1993,18 +2043,27 @@
 
                     {
                       tab === "grafico" && (
-                        <div className="animate-fade" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                        <div className="animate-fade" style={{ display: "flex", flexDirection: "column", height: "100%", gap: 20 }}>
                           {+pr.monto > 0 && ahorroIntereses > 0 && (
-                            <div style={{ marginBottom: 16, padding: "12px 16px", background: "rgba(6, 182, 212, 0.05)", borderLeft: "4px solid var(--accent-cyan)", borderRadius: "4px 8px 8px 4px" }}>
-                              <div style={{ color: "var(--accent-cyan)", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Key Insight</div>
-                              <div style={{ fontSize: 14, color: "#e2e8f0", lineHeight: 1.5, fontFamily: "Inter", fontWeight: 400 }}>
-                                La estrategia propuesta acelera la amortización y reduce la exposición a intereses prospectivos en un <strong style={{ color: "#fff", fontWeight: 700 }}>{((ahorroIntereses / interesesBase) * 100).toFixed(1)}%</strong>, optimizando la estructura de capital a largo plazo.
+                            <div className="glass-card" style={{ padding: "16px 20px", borderLeft: "4px solid var(--accent-cyan)", borderRadius: "8px 16px 16px 8px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-cyan)" }}></div>
+                                <div style={{ color: "var(--accent-cyan)", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>Executive Summary</div>
+                              </div>
+                              <div style={{ fontSize: 14, color: "var(--text-main)", lineHeight: 1.6, fontFamily: "var(--font-body)", fontWeight: 400 }}>
+                                La estrategia de amortización propuesta acelera la reducción del saldo insoluto, mitigando la exposición a intereses prospectivos en un <strong style={{ color: "#fff", fontWeight: 700 }}>{((ahorroIntereses / interesesBase) * 100).toFixed(1)}%</strong>. Esto permite comparar el impacto diferencial entre reducir plazo y reducir cuota.
                               </div>
                             </div>
                           )}
-                          <h3 style={{ fontSize: 14, marginBottom: 16, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Proyección de Saldo Insoluto (UF)</h3>
-                          <div style={{ position: "relative", flex: 1, minHeight: 300 }}>
-                            <GraficoSaldo evolucionSin={sim.evolucionSin} evolucionCon={sim.evolucionCon} mesesRestantes={mesesRestantes} saldoInicial={saldoActual} cr={cr} />
+                          <div className="glass-card" style={{ flex: 1, minHeight: 400, display: "flex", flexDirection: "column" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                              <h3 style={{ fontSize: 15, color: "var(--text-main)", fontWeight: 700, letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 18 }}>📉</span> Proyección de Saldo Insoluto (UF)
+                              </h3>
+                            </div>
+                            <div style={{ position: "relative", flex: 1, minHeight: 300 }}>
+                              <GraficoSaldo evolucionSin={sim.evolucionSin} evolucionPlazo={simPlazo.evolucionCon} evolucionCuota={simCuota.evolucionCon} mesesRestantes={mesesRestantes} saldoInicial={saldoActual} cr={cr} />
+                            </div>
                           </div>
                         </div>
                       )
@@ -2044,8 +2103,6 @@
                   </div >
                 </div >
               </div >
-
-
             </div>
           </div>
         </>
