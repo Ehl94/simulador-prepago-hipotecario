@@ -1,49 +1,44 @@
-# Simulador de Prepago Hipotecario v4.0
+# Simulador de Prepago Hipotecario
 
-Una herramienta interactiva profesional para simular escenarios de prepago en créditos hipotecarios, permitiendo evaluar el impacto financiero de diferentes estrategias de pago anticipado con precisión y visualizaciones modernas.
+El **Simulador de Prepago Hipotecario** es una herramienta interactiva de grado profesional diseñada para ayudar a propietarios de viviendas y asesores financieros a evaluar el impacto real de realizar pagos anticipados en créditos hipotecarios. 
 
-## 🚀 Novedades de la Versión 4.0
+A diferencia de los simuladores bancarios tradicionales, esta herramienta ofrece una visualización profunda del ahorro en intereses, la reducción de plazos y el comportamiento de la deuda bajo distintos escenarios económicos, permitiendo tomar decisiones informadas sobre la gestión del patrimonio y la deuda.
 
-Esta versión representa una evolución significativa en la interfaz y capacidad de análisis de la herramienta:
+## 🛠️ Características Principales
 
-- 📱 **Nueva Navegación Sidebar**: Interfaz moderna con controles agrupados en una barra lateral para una mejor experiencia de usuario.
-- 💱 **Soporte Multimoneda (UF/CLP)**: Conversión dinámica entre Unidades de Fomento y Pesos Chilenos en todas las tablas y gráficos.
-- 📈 **Modelos Financieros Avanzados**: Incorporación de 4 nuevos escenarios de análisis:
-    - **Dinámica de Deuda**: Análisis profundo de la amortización.
-    - **Arbitraje de Tasas (Fisher Modificado)**: Comparación entre tasa de crédito y rentabilidad de inversión.
-    - **Valor Presente Neto (VPN)**: Evaluación del valor del dinero en el tiempo.
-    - **Monte Carlo**: Simulación de variaciones de tasa.
-- 📄 **Reportes PDF McKinsey-Style**: Generación de informes profesionales en PDF con gráficos vectoriales y diseño ejecutivo.
-- ⚡ **Optimización de Cálculos**: Refactorización de la lógica financiera para mayor precisión y rendimiento.
+- 💰 **Simulación Multiescenario**: Evalúa prepagos únicos, mensuales recurrentes, semestrales o anuales.
+- 📊 **Visualización Avanzada**: Gráficos interactivos que comparan el escenario original vs. el escenario con prepago.
+- 🎯 **Análisis de Costos Reales**: Incluye en el cálculo los costos de prepago (intereses de prepago), seguros asociados y gastos operacionales.
+- ⚙️ **Flexibilidad Total**: Ajuste dinámico de parámetros como tasa de interés (anual/mensual), plazo restante, monto y valor de la moneda.
 
-## Características Principales
+## 🚀 Uso y Navegación
 
-- 💰 **Cálculo de múltiples escenarios** - Simula prepagos únicos, mensuales, semestrales y anuales.
-- 📊 **Visualización de datos** - Gráficos comparativos interactivos con Recharts.
-- 🎯 **Análisis de costos** - Incluye costos de prepago, seguros y gastos operacionales.
-- ⚙️ **Parámetros flexibles** - Ajusta tasa, plazo, monto, frecuencia y valor de la UF.
+1.  **Configuración Lateral**: Utiliza el panel izquierdo para ingresar los datos base de tu crédito y el valor actual de la UF si aplica.
+2.  **Definición de Estrategia**: Ingresa el monto y la frecuencia de tus prepagos.
+3.  **Análisis de Impacto**: Revisa las pestañas de gráficos para ver la reducción de la deuda y el ahorro proyectado.
+4.  **Exportación**: Genera un informe profesional en PDF para guardar o compartir tus resultados.
 
-## Uso
+## 💻 Stack Tecnológico
 
-1. Abre `index.html` en tu navegador.
-2. Configura los parámetros de tu crédito en el panel lateral.
-3. Elige el escenario de prepago deseado.
-4. Exporta tu análisis profesional mediante el botón "Exportar PDF".
+-   **Frontend**: React 18 con Vite.
+-   **Gráficos**: Recharts para visualizaciones dinámicas.
+-   **Estilos**: CSS3 Moderno con un sistema de diseño Glassmorphism y variables dinámicas.
+-   **Exportación**: html2pdf.js para la generación de reportes ejecutivos.
+-   **Lógica**: JavaScript puro optimizado para cálculos financieros complejos.
 
-## Tecnología
+---
 
-- **React 18** - Framework principal.
-- **Recharts** - Motor de visualización de datos.
-- **CSS3 Moderno** - Diseño Glassmorphism y variables CSS.
-- **html2pdf.js** - Motor de exportación de documentos.
-- **Vanilla JavaScript** - Lógica financiera robusta.
+## 📜 Log de Cambios Recientes
 
-## Archivos Clave
-
-- `App.jsx` - Núcleo de la aplicación y componentes.
-- `App.css` - Sistema de diseño y estilos.
-- `financial_logic.js` - Funciones de cálculo financiero.
-- `index.html` - Punto de entrada y estructura base.
+### Versión 4.0 (Actual)
+-   **Interfaz Renovada**: Implementación de navegación sidebar para mejorar el espacio de trabajo.
+-   **Soporte UF/CLP**: Conversión automática y visualización dinámica entre Unidades de Fomento y Pesos Chilenos.
+-   **Nuevos Modelos de Análisis**:
+    -   *Dinámica de Deuda*: Desglose pormenorizado de la amortización.
+    -   *Arbitraje de Tasas (Fisher)*: Evaluación de rentabilidad comparada.
+    -   *Valor Presente Neto (VPN)*: Análisis financiero del ahorro a valor actual.
+    -   *Simulación Monte Carlo*: Proyecciones con variabilidad de tasas.
+-   **Reportes MCK**: Nuevo generador de PDFs con diseño premium estilo consultoría McKinsey.
 
 ---
 
