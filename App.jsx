@@ -15,117 +15,8 @@ const chartColors = {
     card: "#18181b",
 };
 
-// ── HELPERS FINANCIEROS (Corregidos) ─────────────────────────────────────────
-const tasaMensual = (tna) => Math.pow(1 + tna / 100, 1 / 12) - 1;
-
-const cuotaMensual = (capital, tna, meses) => {
-    const r = tasaMensual(tna);
-    if (r === 0) return capital / meses;
-    return (capital * r * Math.pow(1 + r, meses)) / (Math.pow(1 + r, meses) - 1);
-};
-
-const calcularSaldoActual = (capital, tna, plazoTotal, mesesPagados) => {
-    const r = tasaMensual(tna);
-    const cuota = cuotaMensual(capital, tna, plazoTotal);
-    let saldo = capital;
-    for (let i = 0; i < mesesPagados; i++) saldo -= cuota - saldo * r;
-    return Math.max(saldo, 0);
-};
-
-const calcularInteresesTotales = (saldo, tna, meses) => {
-    if (meses <= 0 || saldo <= 0) return 0;
-    return cuotaMensual(saldo, tna, meses) * meses - saldo;
-};
-
-// LOGICA CORREGIDA: Recibe `destino` y `cuotaBase`
-const simularPrepago = (saldoActual, tna, mesesRestantes, montoPrepago, frecuencia, mesInicio, destino, cuotaBase, costoPrepago = 0) => {
-    const r = tasaMensual(tna);
-    let saldo = saldoActual;
-    let mes = 0;
-    let totalIntereses = 0;
-    let totalPrepagado = 0;
-    let totalMultas = 0;
-    let prepagosRealizados = 0;
-    const evolucionSin = [];
-    const evolucionCon = [];
-    const cuotasAnualesSin = {};
-    const cuotasAnualesCon = {};
-
-    // Evolución SIN prepago
-    let saldoSin = saldoActual;
-    for (let i = 0; i < mesesRestantes; i++) {
-        const intSin = saldoSin * r;
-        const cuotaSin = cuotaBase; // The base scenario quota is constant
-        saldoSin -= Math.min(cuotaSin - intSin, saldoSin);
-        evolucionSin.push({ mes: i + 1, saldo: Math.max(saldoSin, 0) });
-
-        const ano = Math.floor(i / 12) + 1;
-        cuotasAnualesSin[ano] = cuotaSin;
-    }
-
-    let cuotaActual = cuotaBase;
-
-    // Evolución CON prepago
-    while (saldo > 0.01 && mes < mesesRestantes + 1) {
-        const mesRelativo = mes - mesInicio;
-        const esPrepago = mesRelativo >= 0 && montoPrepago > 0 && (
-            (frecuencia === "una_vez" && mesRelativo === 0) ||
-            frecuencia === "mensual" ||
-            (frecuencia === "semestral" && mesRelativo % 6 === 0) ||
-            (frecuencia === "anual" && mesRelativo % 12 === 0)
-        );
-
-        if (esPrepago) {
-            const p = Math.min(montoPrepago, saldo);
-            saldo -= p;
-            totalPrepagado += p;
-            prepagosRealizados++;
-            totalMultas += costoPrepago * saldo * r; // Costo por cada prepago
-
-            // Only recalculate quota when prepaying to reduce quota
-            if (destino === "cuota" && saldo > 0.01) {
-                const mesesRest = Math.max(mesesRestantes - mes, 1);
-                cuotaActual = cuotaMensual(saldo, tna, mesesRest);
-            }
-        }
-
-        if (saldo <= 0.01) break;
-
-        const intMes = saldo * r;
-        saldo -= Math.min(cuotaActual - intMes, saldo);
-        totalIntereses += intMes;
-        mes++;
-        evolucionCon.push({ mes, saldo: Math.max(saldo, 0) });
-
-        const ano = Math.floor((mes - 1) / 12) + 1;
-        cuotasAnualesCon[ano] = cuotaActual;
-    }
-
-    // Calcular nueva cuota final (relevante si redujo cuota)
-    const maxAno = Math.max(...Object.keys(cuotasAnualesSin).map(Number));
-    const evolucionCuota = [];
-    for (let i = 1; i <= maxAno; i++) {
-        evolucionCuota.push({
-            ano: i,
-            cuotaSin: cuotasAnualesSin[i] || 0,
-            cuotaCon: cuotasAnualesCon[i] || 0
-        });
-    }
-
-    const nuevaCuota = destino === "cuota" ? cuotaMensual(saldoActual - montoPrepago, tna, mesesRestantes) : cuotaBase;
-
-    return {
-        mesesReales: mes,
-        totalIntereses,
-        totalPrepagado,
-        totalMultas,
-        prepagosRealizados,
-        evolucionSin,
-        evolucionCon,
-        evolucionCuota,
-        nuevaCuota
-    };
-};
+// ── HELPERS FINANCIEROS (Centralizados en financial_logic.js) ────────────────
+const { tasaMensual, cuotaMensual, calcularSaldoActual, calcularInteresesTotales, simularPrepago } = window.FinancialLogic;
 
 const costosPrepagoOpciones = [
     { value: "1.5", label: "1,5 meses de interés por prepago" },
@@ -169,15 +60,63 @@ const Stat = ({ label, value, sub, colorClass = "cyan", big }) => (
     </div>
 );
 
+// ── COMPONENTES PARA GRÁFICOS ──────────────────────────────────────────────
+const CustomBadge = ({ x, y, value, color, bottomY }) => {
+    // Glassmorphism adjustment: semi-transparent wash with a border
+    const glassColor = color + 'CC'; // Adding ~80% opacity
+    return (
+        <g transform={`translate(${x}, 0)`}>
+            <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" />
+                <feOffset dx="0" dy="1" result="offsetblur" />
+                <feComponentTransfer>
+                    <feFuncA type="linear" slope="0.2" />
+                </feComponentTransfer>
+                <feMerge>
+                    <feMergeNode />
+                    <feMergeNode in="SourceGraphic" />
+                </feMerge>
+            </filter>
+            
+            {/* Línea vertical suavizada */}
+            <line
+                x1="0" y1={bottomY}
+                x2="0" y2={y + 12}
+                stroke={color} strokeDasharray="3 3" strokeWidth={1}
+                opacity={0.6}
+            />
+
+            <rect
+                x="-65" y={y - 12} width="130" height="24"
+                rx="12" fill={glassColor} stroke="#fff" strokeWidth={1.5}
+                filter="url(#shadow)"
+            />
+            <text
+                x="0" y={y + 4} textAnchor="middle" fill="#fff"
+                style={{ fontSize: 10, fontWeight: 800, fontFamily: 'Outfit' }}
+            >
+                Termino del Credito {value}
+            </text>
+        </g>
+    );
+};
+
 // ── GRÁFICO ──────────────────────────────────────────────────────────────────
-const GraficoSaldo = ({ evolucionSin, evolucionCon, mesesRestantes, saldoInicial }) => {
+const GraficoSaldo = ({ evolucionSin, simPlazo, simCuota, mesesRestantes, saldoInicial }) => {
     const dataMap = {};
+    const evolucionPlazo = simPlazo.evolucionCon;
+    const evolucionCuota = simCuota.evolucionCon;
+
     [{ mes: 0, saldo: saldoInicial }].concat(evolucionSin).forEach(p => {
         dataMap[p.mes] = { mes: p.mes, sinPrepago: Math.round(p.saldo) };
     });
-    [{ mes: 0, saldo: saldoInicial }].concat(evolucionCon).forEach(p => {
-        if (dataMap[p.mes]) dataMap[p.mes].conPrepago = Math.round(p.saldo);
-        else dataMap[p.mes] = { mes: p.mes, conPrepago: Math.round(p.saldo) };
+    [{ mes: 0, saldo: saldoInicial }].concat(evolucionPlazo).forEach(p => {
+        if (dataMap[p.mes]) dataMap[p.mes].conPrepagoPlazo = Math.round(p.saldo);
+        else dataMap[p.mes] = { mes: p.mes, conPrepagoPlazo: Math.round(p.saldo) };
+    });
+    [{ mes: 0, saldo: saldoInicial }].concat(evolucionCuota).forEach(p => {
+        if (dataMap[p.mes]) dataMap[p.mes].conPrepagoCuota = Math.round(p.saldo);
+        else dataMap[p.mes] = { mes: p.mes, conPrepagoCuota: Math.round(p.saldo) };
     });
 
     const data = Object.values(dataMap).sort((a, b) => a.mes - b.mes);
@@ -211,16 +150,20 @@ const GraficoSaldo = ({ evolucionSin, evolucionCon, mesesRestantes, saldoInicial
 
     return (
         <div style={{ padding: "10px 0" }}>
-            <ResponsiveContainer width="100%" height={320}>
-                <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+            <ResponsiveContainer width="100%" height={400}>
+                <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                     <defs>
                         <linearGradient id="gradSin" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor={chartColors.sinPrepago} stopOpacity={0.15} />
                             <stop offset="95%" stopColor={chartColors.sinPrepago} stopOpacity={0.01} />
                         </linearGradient>
-                        <linearGradient id="gradCon" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={chartColors.conPrepago} stopOpacity={0.25} />
-                            <stop offset="95%" stopColor={chartColors.conPrepago} stopOpacity={0.01} />
+                        <linearGradient id="gradPlazo" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.01} />
+                        </linearGradient>
+                        <linearGradient id="gradCuota" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.01} />
                         </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={"rgba(255, 255, 255, 0.05)"} vertical={true} verticalFill={["rgba(255,255,255,0.01)", "transparent"]} />
@@ -237,13 +180,41 @@ const GraficoSaldo = ({ evolucionSin, evolucionCon, mesesRestantes, saldoInicial
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{ stroke: "rgba(255,255,255,0.15)", strokeWidth: 1, strokeDasharray: "4 4" }} />
                     <Legend verticalAlign="top" height={40} iconType="circle" wrapperStyle={{ fontSize: 12, fontWeight: 600, color: "#fff", fontFamily: "Inter" }} />
+                    
+                    {/* Líneas de Término Armonizadas */}
+                    {(() => {
+                        const mP = simPlazo.mesesReales;
+                        const mC = simCuota.mesesReales;
+                        // Increased threshold to 84 months (7 years) to account for badge width overlap
+                        const isClose = Math.abs(mP - mC) < 84; 
+                        const yPlazo = 60;
+                        const yCuota = isClose ? 115 : 60; 
+                        
+                        return (
+                            <>
+                                <ReferenceLine
+                                    x={mP} stroke="none"
+                                    label={<CustomBadge color="#3b82f6" value={new Date().getFullYear() + Math.floor((new Date().getMonth() + mP) / 12)} y={yPlazo} bottomY={380} />}
+                                />
+                                <ReferenceLine
+                                    x={mC} stroke="none"
+                                    label={<CustomBadge color="#10b981" value={new Date().getFullYear() + Math.floor((new Date().getMonth() + mC) / 12)} y={yCuota} bottomY={380} />}
+                                />
+                            </>
+                        );
+                    })()}
+
                     <Area
                         type="monotone" dataKey="sinPrepago" name="Sin Prepago" stroke={chartColors.sinPrepago}
                         strokeWidth={2} strokeDasharray="4 4" fill="url(#gradSin)" dot={false} activeDot={{ r: 6, fill: "#fff", stroke: chartColors.sinPrepago, strokeWidth: 3 }} connectNulls
                     />
                     <Area
-                        type="monotone" dataKey="conPrepago" name="Con Prepago" stroke={chartColors.conPrepago}
-                        strokeWidth={3} fill="url(#gradCon)" dot={false} activeDot={{ r: 7, fill: "#fff", stroke: chartColors.conPrepago, strokeWidth: 3 }} connectNulls
+                        type="monotone" dataKey="conPrepagoPlazo" name="Reducir Plazo" stroke="#3b82f6"
+                        strokeWidth={3} fill="url(#gradPlazo)" dot={false} activeDot={{ r: 7, fill: "#fff", stroke: "#3b82f6", strokeWidth: 3 }} connectNulls
+                    />
+                    <Area
+                        type="monotone" dataKey="conPrepagoCuota" name="Reducir Cuota" stroke="#10b981"
+                        strokeWidth={3} fill="url(#gradCuota)" dot={false} activeDot={{ r: 7, fill: "#fff", stroke: "#10b981", strokeWidth: 3 }} connectNulls
                     />
                 </AreaChart>
             </ResponsiveContainer>
@@ -332,7 +303,7 @@ const GraficoCuotas = ({ evolucionCuota, cuotaBase, destino }) => {
 // ── ESCENARIOS (FRAMEWORK 4 MODELOS) ────────────────────────────────────────────────────────
 const Escenarios = ({ cr, saldoActual, mesesRestantes, interesesBase, pr, cuotaBase, valorUF, cae }) => {
     const [inflacion, setInflacion] = useState(4.0);
-    const [retornoInv, setRetornoInv] = useState(5.0);
+    const [retornoInv, setRetornoInv] = useState(8.0);
 
     const minPrepago = Math.ceil(saldoActual * 0.05); // Límite legal 5%
     const montoEstrategico = Math.max(minPrepago, +pr.monto);
@@ -645,11 +616,84 @@ const GraficoEscenarios = ({ saldoActual, cr, mesesRestantes, pr, cuotaBase }) =
     );
 };
 
+// ── TABLA DE AMORTIZACIÓN MENSUAL (NUEVO) ──────────────────────────────────
+const TablaAmortizacion = ({ detalle, seguros, moneda = "UF", valorUF = 38000 }) => {
+    if (!detalle || detalle.length === 0) return null;
+
+    const formatVal = (val) => {
+        if (moneda === "CLP") {
+            return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(val * valorUF);
+        }
+        return `UF ${fmt(val, 2)}`;
+    };
+
+    const formatSmallVal = (val, dec = 0) => {
+        if (moneda === "CLP") {
+            return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(val * valorUF);
+        }
+        return `UF ${fmt(val, dec)}`;
+    };
+
+    return (
+        <div className="animate-fade" style={{ overflow: "hidden", borderRadius: 12, border: "1px solid var(--card-border)" }}>
+            <div style={{ overflowX: "auto", maxHeight: "600px", overflowY: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "Inter", textAlign: "right" }}>
+                    <thead style={{ position: "sticky", top: 0, background: "rgba(15, 23, 42, 0.95)", backdropFilter: "blur(10px)", zIndex: 10 }}>
+                        <tr style={{ color: "var(--text-muted)", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.05em" }}>
+                            <th style={{ padding: "12px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Mes</th>
+                            <th style={{ padding: "12px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Año</th>
+                            <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Cuota + Seg</th>
+                            <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Interés</th>
+                            <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Amortización</th>
+                            <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", color: "var(--accent-emerald)" }}>Prepago</th>
+                            <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", color: "var(--accent-rose)" }}>Multa</th>
+                            <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Saldo Final</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {detalle.map((d, i) => (
+                            <tr key={i} style={{ 
+                                borderBottom: "1px solid rgba(255,255,255,0.03)", 
+                                background: d.prepago > 0 ? "rgba(16, 185, 129, 0.08)" : "transparent",
+                                transition: "background 0.2s"
+                            }} className="table-row-hover">
+                                <td style={{ padding: "10px 16px", textAlign: "center", color: "var(--text-muted)" }}>{d.mes}</td>
+                                <td style={{ padding: "10px 16px", textAlign: "center", fontWeight: 600 }}>{d.ano}</td>
+                                <td style={{ padding: "10px 16px" }}>{formatVal(d.cuota + seguros)}</td>
+                                <td style={{ padding: "10px 16px", color: "rgba(255,255,255,0.7)" }}>{formatVal(d.interes)}</td>
+                                <td style={{ padding: "10px 16px" }}>{formatVal(d.amortizacion)}</td>
+                                <td style={{ padding: "10px 16px", color: "var(--accent-emerald)", fontWeight: 700 }}>
+                                    {d.prepago > 0 ? `+${formatSmallVal(d.prepago, 0)}` : "—"}
+                                </td>
+                                <td style={{ padding: "10px 16px", color: "var(--accent-rose)" }}>
+                                    {d.multa > 0 ? formatVal(d.multa) : "—"}
+                                </td>
+                                <td style={{ padding: "10px 16px", fontWeight: 700, color: "#fff" }}>{formatVal(d.saldo)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
 // ── APP PRINCIPAL ────────────────────────────────────────────────────────────
 export default function App() {
-    const [cr, setCr] = useState({ capital: 3000, tna: 4.5, plazo: 240, mesesPagados: 36, costoPrepago: "1.5", seguros: 0.5 });
-    const [pr, setPr] = useState({ monto: 200, frecuencia: "una_vez", mesInicio: 0, destino: "plazo" });
+    const [cr, setCr] = useState({ capital: 2000, tna: 4.5, plazo: 300, mesesPagados: 36, costoPrepago: "1.5", seguros: 0.5 });
+    const [pr, setPr] = useState({ monto: 100, frecuencia: "anual", mesInicio: 37, destino: "plazo" });
     const [tab, setTab] = useState("resumen");
+    const [monedaTabla, setMonedaTabla] = useState("UF");
+    const [valorUF, setValorUF] = useState(38000);
+
+    React.useEffect(() => {
+        fetch("https://mindicador.cl/api/uf")
+            .then(res => res.json())
+            .then(data => {
+                if (data?.serie?.[0]?.valor) setValorUF(data.serie[0].valor);
+            })
+            .catch(e => console.log("Error fetching UF:", e));
+    }, []);
 
     const setC = k => v => setCr(p => ({ ...p, [k]: v }));
     const setP = k => v => setPr(p => ({ ...p, [k]: v }));
@@ -659,10 +703,17 @@ export default function App() {
     const cuotaBase = cuotaMensual(saldoActual, +cr.tna, mesesRestantes);
     const interesesBase = calcularInteresesTotales(saldoActual, +cr.tna, mesesRestantes);
 
-    const sim = useMemo(() =>
-        simularPrepago(saldoActual, +cr.tna, mesesRestantes, +pr.monto, pr.frecuencia, +pr.mesInicio, pr.destino, cuotaBase, +cr.costoPrepago),
-        [saldoActual, cr.tna, mesesRestantes, pr.monto, pr.frecuencia, pr.mesInicio, pr.destino, cuotaBase, cr.costoPrepago]
+    const simPlazo = useMemo(() =>
+        simularPrepago(saldoActual, +cr.tna, mesesRestantes, +pr.monto, pr.frecuencia, +pr.mesInicio, "plazo", cuotaBase, +cr.costoPrepago),
+        [saldoActual, cr.tna, mesesRestantes, pr.monto, pr.frecuencia, pr.mesInicio, cuotaBase, cr.costoPrepago]
     );
+
+    const simCuota = useMemo(() =>
+        simularPrepago(saldoActual, +cr.tna, mesesRestantes, +pr.monto, pr.frecuencia, +pr.mesInicio, "cuota", cuotaBase, +cr.costoPrepago),
+        [saldoActual, cr.tna, mesesRestantes, pr.monto, pr.frecuencia, pr.mesInicio, cuotaBase, cr.costoPrepago]
+    );
+
+    const sim = pr.destino === "plazo" ? simPlazo : simCuota;
 
     const ahorroIntereses = interesesBase - sim.totalIntereses;
     const ahorroNeto = ahorroIntereses - sim.totalMultas;
@@ -693,6 +744,7 @@ export default function App() {
     const tabs = [
         { id: "resumen", label: "RESUMEN" },
         { id: "grafico", label: "GRAFICO COMPARATIVO" },
+        { id: "amortizacion", label: "DETALLE MENSUAL" },
         { id: "escenarios", label: "ESCENARIOS" },
         { id: "curvas", label: "CURVAS ESCENARIOS" },
         { id: "comparacion", label: "EVOLUCIÓN CUOTA" }
@@ -744,25 +796,10 @@ export default function App() {
                 </div>
             </div>
 
-            {/* Alerta de Retorno */}
-            {+pr.monto > 0 && (
-                <div className={`alert-box ${conviene ? 'alert-success' : 'alert-warning'}`}>
-                    <div className="alert-icon">{conviene ? "🚀" : "⚠️"}</div>
-                    <div>
-                        <div className="alert-title">
-                            {conviene ? "Estrategia Rentable" : "El costo de prepago supera el ahorro"}
-                        </div>
-                        <div className="alert-desc">
-                            {conviene
-                                ? `Estás ahorrando UF ${fmt(ahorroNeto)} netos (ya descontado el costo de prepago de UF ${fmt(sim.totalMultas)}).`
-                                : `Tu ahorro en interés no alcanza a cubrir el costo de prepago de UF ${fmt(sim.totalMultas)}. Considera aumentar el monto o la frecuencia.`}
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Alerta de Retorno movida dentro de la pestaña */}
 
             {/* Contenedor Principal de Resultados */}
-            <div className="glass-card" style={{ padding: "0", overflow: "hidden", borderColor: "rgba(245, 158, 11, 0.2)" }}>
+            <div className="glass-card" style={{ padding: "0", overflow: "hidden", height: "auto", minHeight: "500px", maxHeight: "800px", borderColor: "rgba(245, 158, 11, 0.2)" }}>
 
                 {/* Navigation Tabs */}
                 <div style={{ padding: "20px 20px 0", borderBottom: "1px solid var(--card-border)" }}>
@@ -782,6 +819,23 @@ export default function App() {
                     {/* TAB: RESUMEN */}
                     {tab === "resumen" && (
                         <div className="animate-fade" style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+
+                            {/* Alerta de Retorno (Ahora dentro de la pestaña) */}
+                            {+pr.monto > 0 && (
+                                <div className={`alert-box ${conviene ? 'alert-success' : 'alert-warning'}`}>
+                                    <div className="alert-icon">{conviene ? "🚀" : "⚠️"}</div>
+                                    <div>
+                                        <div className="alert-title">
+                                            {conviene ? "Estrategia Rentable" : "El costo de prepago supera el ahorro"}
+                                        </div>
+                                        <div className="alert-desc">
+                                            {conviene
+                                                ? `Estás ahorrando UF ${fmt(ahorroNeto)} netos (ya descontado el costo de prepago de UF ${fmt(sim.totalMultas)}).`
+                                                : `Tu ahorro en interés no alcanza a cubrir el costo de prepago de UF ${fmt(sim.totalMultas)}. Considera aumentar el monto o la frecuencia.`}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Sección: Estado Actual */}
                             <div>
@@ -836,8 +890,8 @@ export default function App() {
                                 </div>
                             )}
                             <h3 style={{ fontSize: 14, marginBottom: 16, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Proyección de Saldo Insoluto (UF)</h3>
-                            <div style={{ position: "relative", flex: 1, minHeight: 300 }}>
-                                <GraficoSaldo evolucionSin={sim.evolucionSin} evolucionCon={sim.evolucionCon} mesesRestantes={mesesRestantes} saldoInicial={saldoActual} cr={cr} />
+                            <div style={{ position: "relative", flex: 1, minHeight: "450px" }}>
+                                <GraficoSaldo evolucionSin={sim.evolucionSin} simPlazo={simPlazo} simCuota={simCuota} mesesRestantes={mesesRestantes} saldoInicial={saldoActual} />
                             </div>
                         </div>
                     )}
@@ -847,7 +901,47 @@ export default function App() {
                         <div className="animate-fade">
                             <h3 style={{ fontSize: 16, marginBottom: 8, color: "#fff", fontWeight: 600 }}>Análisis de Escenarios</h3>
                             <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 16 }}>Optimización matemática del monto ideal de prepago según tu crédito.</p>
-                            <Escenarios cr={cr} saldoActual={saldoActual} mesesRestantes={mesesRestantes} interesesBase={interesesBase} pr={pr} cuotaBase={cuotaBase} valorUF={valorUF} />
+                            <Escenarios cr={cr} saldoActual={saldoActual} mesesRestantes={mesesRestantes} interesesBase={interesesBase} pr={pr} cuotaBase={cuotaBase} valorUF={0} cae={cae} />
+                        </div>
+                    )}
+
+                    {/* TAB: AMORTIZACIÓN */}
+                    {tab === "amortizacion" && (
+                        <div className="animate-fade">
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+                                    <div>
+                                        <h3 style={{ fontSize: 16, color: "#fff", fontWeight: 600 }}>Tabla de Amortización Detallada</h3>
+                                        <p style={{ fontSize: 14, color: "var(--text-muted)" }}>Desglose de cada pago bajo la estrategia de {pr.destino === "plazo" ? "Reducción de Plazo" : "Reducción de Cuota"}.</p>
+                                    </div>
+                                    <div style={{ display: "flex", background: "rgba(0,0,0,0.3)", padding: 4, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
+                                        {["UF", "CLP"].map(m => (
+                                            <button
+                                                key={m}
+                                                onClick={() => setMonedaTabla(m)}
+                                                style={{
+                                                    padding: "6px 16px",
+                                                    borderRadius: 6,
+                                                    border: "none",
+                                                    fontSize: 11,
+                                                    fontWeight: 800,
+                                                    cursor: "pointer",
+                                                    transition: "all 0.2s",
+                                                    background: monedaTabla === m ? "var(--accent-indigo)" : "transparent",
+                                                    color: monedaTabla === m ? "#fff" : "var(--text-muted)"
+                                                }}
+                                            >
+                                                {m}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: "right", background: "rgba(59, 130, 246, 0.1)", padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                                    <div style={{ fontSize: 10, color: "var(--accent-cyan)", fontWeight: 800, textTransform: "uppercase" }}>Término Proyectado</div>
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{new Date().getFullYear() + Math.floor((new Date().getMonth() + sim.mesesReales) / 12)}</div>
+                                </div>
+                            </div>
+                            <TablaAmortizacion detalle={sim.detalleMensual} seguros={+cr.seguros} moneda={monedaTabla} valorUF={valorUF} />
                         </div>
                     )}
 
@@ -875,9 +969,6 @@ export default function App() {
                     )}
                 </div>
             </div>
-
-
-
         </div>
     );
 }
