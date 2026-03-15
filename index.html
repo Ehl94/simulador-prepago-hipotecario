@@ -1,0 +1,2315 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMULADOR DE PREPAGO HIPOTECARIO</title>
+
+  <!-- React y ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Chart.js y react-chartjs-2 (Más estable para uso directo sin Node.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-chartjs-2@5.2.0/dist/index.umd.js"></script>
+
+  <!-- Babel -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- CSS Premium -->
+  <link rel="stylesheet" href="App.css">
+
+  <!-- Lógica Financiera Centralizada -->
+  <script src="financial_logic.js"></script>
+
+  <!-- (pdf libraries removed: using browser print instead) -->
+</head>
+
+<body>
+
+  <div id="root"></div>
+  <div id="error-log"
+    style="color: red; padding: 20px; font-family: monospace; white-space: pre-wrap; font-size: 16px;"></div>
+
+  <script>
+    window.addEventListener('error', function (event) {
+      document.getElementById('error-log').innerText += 'Error: ' + event.message + '\n';
+    });
+    window.addEventListener('unhandledrejection', function (event) {
+      document.getElementById('error-log').innerText += 'Promise Error: ' + event.reason + '\n';
+    });
+  </script>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    // ── FORMATEADOR CLP ─────────────────────────────────────────────────────────
+    const fmtCLP = (n) => n?.toLocaleString("es-CL", { style: "currency", currency: "CLP", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+    const chartColors = {
+      sinPrepago: "#64748b", // Slate 500
+      conPrepagoPlazo: "#3b82f6", // Blue 500
+      conPrepagoCuota: "#10b981", // Emerald 500
+      grid: "rgba(148,163,184,0.05)",
+      text: "#94a3b8",
+      card: "#0f172a",
+    };
+
+    // ── HELPERS FINANCIEROS (Centralizados en financial_logic.js) ────────────────
+    // Ahora se destructurarán dentro de los componentes para asegurar disponibilidad.
+
+    const costosPrepagoOpciones = [
+      { value: "1.5", label: "1,5 meses de interés por prepago" },
+      { value: "0", label: "Sin costo de prepago" }
+    ];
+
+    const fmt = (n, d = 1) => n?.toLocaleString("es-CL", { minimumFractionDigits: d, maximumFractionDigits: d });
+    const fmtM = (m) => {
+      const a = Math.floor(m / 12), mo = m % 12;
+      return a > 0 ? `${a} ${a === 1 ? "Año" : "Años"} ${mo > 0 ? mo + " " + (mo === 1 ? "Mes" : "Meses") : ""}`.trim() : `${mo} ${mo === 1 ? "Mes" : "Meses"}`;
+    };
+
+    // ── COMPONENTES UI ──────────────────────────────────────────────────────────
+    const Input = ({ label, value, onChange, min, max, step = "any", prefix, suffix }) => (
+      <div className="input-group">
+        <label className="input-label">{label}</label>
+        <div className="input-wrapper">
+          {prefix && <span className="input-prefix">{prefix}</span>}
+          <input type="number" className="styled-input" value={value} onChange={e => onChange(e.target.value)} min={min} max={max} step={step} />
+          {suffix && <span className="input-suffix">{suffix}</span>}
+        </div>
+      </div>
+    );
+
+    const Select = ({ label, value, onChange, options }) => (
+      <div className="input-group">
+        <label className="input-label">{label}</label>
+        <div className="input-wrapper">
+          <select className="styled-input" value={value} onChange={e => onChange(e.target.value)}>
+            {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      </div>
+    );
+
+    const Stat = ({ label, value, sub, colorClass = "cyan", big }) => (
+      <div className={`stat-box ${colorClass}`}>
+        <div className="stat-label">{label}</div>
+        <div className={`stat-value ${big ? 'big' : ''}`}>{value}</div>
+        {sub && <div className="stat-sub">{sub}</div>}
+      </div>
+    );
+
+    // ── TABLA DE AMORTIZACIÓN MENSUAL ──────────────────────────────────────────
+    const TablaAmortizacion = ({ detalle, historial = [], mesesPagados = 0, startYear, startMonth, seguros, moneda = "UF", valorUF = 38000 }) => {
+      const filaVigenteRef = React.useRef(null);
+      const scrollContainerRef = React.useRef(null);
+
+      // Unir historia ya pagada + filas futuras del detalleMensual
+      const todasLasFilas = React.useMemo(() => [
+        ...historial,
+        ...(detalle || []).map(d => ({ ...d, mes: mesesPagados + d.mes }))
+      ], [historial, detalle, mesesPagados]);
+
+      // Calcular año calendario para cada fila
+      const getCalYear = (mesAbsoluto) => {
+        if (!startYear) return Math.floor((mesAbsoluto - 1) / 12) + 1;
+        const d = new Date(startYear, (startMonth || 1) - 1);
+        d.setMonth(d.getMonth() + mesAbsoluto - 1);
+        return d.getFullYear();
+      };
+
+      // Scroll solo dentro del contenedor — no mueve la página
+      React.useEffect(() => {
+        const fila = filaVigenteRef.current;
+        const contenedor = scrollContainerRef.current;
+        if (fila && contenedor) {
+          const offset = fila.offsetTop - contenedor.clientHeight / 2 + fila.clientHeight / 2;
+          contenedor.scrollTop = Math.max(0, offset);
+        }
+      }, [mesesPagados]);
+
+      if (!todasLasFilas.length) return null;
+
+      const formatVal = (val) => moneda === "CLP" ? fmtCLP(val * valorUF) : `UF ${fmt(val, 2)}`;
+      const formatSmallVal = (val, dec = 0) => moneda === "CLP" ? fmtCLP(val * valorUF) : `UF ${fmt(val, dec)}`;
+
+      return (
+        <div className="animate-fade" style={{ overflow: "hidden", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)" }}>
+          <div ref={scrollContainerRef} style={{ overflowX: "auto", maxHeight: "600px", overflowY: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "Inter", textAlign: "right" }}>
+              <thead style={{ position: "sticky", top: 0, background: "rgba(15, 23, 42, 0.98)", backdropFilter: "blur(10px)", zIndex: 10 }}>
+                <tr style={{ color: "var(--text-muted)", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.05em" }}>
+                  <th style={{ padding: "12px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Mes</th>
+                  <th style={{ padding: "12px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Año</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Dividendo Total</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Interés</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Amortización</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", color: "#10b981" }}>Prepago</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", color: "#f43f5e" }}>Multa</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Saldo Final</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todasLasFilas.map((d, i) => {
+                  const mesAbs = d.mes;
+                  const esVigente = mesAbs === mesesPagados + 1;
+                  const esPagado  = d.esPagado === true;
+                  const calYear   = getCalYear(mesAbs);
+
+                  let rowBg = "transparent";
+                  if (esVigente)  rowBg = "rgba(14, 165, 233, 0.12)";
+                  else if (esPagado) rowBg = "rgba(255,255,255,0.01)";
+                  else if (d.prepago > 0) rowBg = "rgba(16, 185, 129, 0.08)";
+
+                  return (
+                    <tr
+                      key={mesAbs}
+                      ref={esVigente ? filaVigenteRef : null}
+                      style={{
+                        borderBottom: esVigente
+                          ? "2px solid rgba(14,165,233,0.5)"
+                          : "1px solid rgba(255,255,255,0.03)",
+                        borderTop: esVigente ? "2px solid rgba(14,165,233,0.5)" : "none",
+                        background: rowBg,
+                        color: esPagado ? "rgba(255,255,255,0.35)" : "#fff",
+                        opacity: esPagado ? 0.65 : 1,
+                        transition: "background 0.2s",
+                        position: "relative"
+                      }}
+                    >
+                      <td style={{ padding: "10px 16px", textAlign: "center", color: esVigente ? "var(--accent-cyan)" : esPagado ? "rgba(148,163,184,0.5)" : "#94a3b8", fontWeight: esVigente ? 800 : 400 }}>
+                        {mesAbs}
+                        {esVigente && <span style={{ marginLeft: 4, fontSize: 9, background: "var(--accent-cyan)", color: "#000", borderRadius: 4, padding: "1px 4px", fontWeight: 800 }}>HOY</span>}
+                      </td>
+                      <td style={{ padding: "10px 16px", textAlign: "center", fontWeight: 600 }}>{calYear}</td>
+                      <td style={{ padding: "10px 16px" }}>{formatVal(d.dividendoTotal ?? (d.cuotaBase + seguros))}</td>
+                      <td style={{ padding: "10px 16px", color: esPagado ? "inherit" : "rgba(255,255,255,0.7)" }}>{formatVal(d.interes)}</td>
+                      <td style={{ padding: "10px 16px" }}>{formatVal(d.amortizacion)}</td>
+                      <td style={{ padding: "10px 16px", color: "#10b981", fontWeight: 700 }}>
+                        {d.prepago > 0 ? `+${formatSmallVal(d.prepago, 0)}` : "—"}
+                      </td>
+                      <td style={{ padding: "10px 16px", color: "#f43f5e" }}>
+                        {d.multa > 0 ? formatVal(d.multa) : "—"}
+                      </td>
+                      <td style={{ padding: "10px 16px", fontWeight: 700 }}>{formatVal(d.saldo)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    };
+
+
+    // ── GRÁFICO (NATIVE CHART.JS) ────────────────────────────────────────────────
+    const GraficoSaldo = ({ evolucionSin, evolucionPlazo, evolucionCuota, mesesRestantes, saldoInicial, cr }) => {
+      const chartRef = React.useRef(null);
+      const chartInstance = React.useRef(null);
+
+      React.useEffect(() => {
+        if (!chartRef.current || !cr) return;
+        const { tasaMensual, cuotaMensual } = window.FinancialLogic;
+
+        const dataMap = {};
+        const mp = +cr.mesesPagados;
+        const r = tasaMensual(+cr.tna);
+        const cuota = cuotaMensual(+cr.capital, +cr.tna, +cr.plazo);
+
+        let saldoHist = +cr.capital;
+        for (let i = 0; i <= mp; i++) {
+          dataMap[i] = { mes: i, sinPrepago: Math.round(saldoHist), conPrepagoPlazo: Math.round(saldoHist), conPrepagoCuota: Math.round(saldoHist) };
+          if (i < mp) saldoHist -= Math.min(cuota - saldoHist * r, saldoHist);
+        }
+
+        evolucionSin.forEach(p => {
+          const m = p.mes + mp;
+          if (!dataMap[m]) dataMap[m] = { mes: m };
+          dataMap[m].sinPrepago = Math.round(p.saldo);
+        });
+
+        if (evolucionPlazo) {
+          evolucionPlazo.forEach(p => {
+            const m = p.mes + mp;
+            if (!dataMap[m]) dataMap[m] = { mes: m };
+            dataMap[m].conPrepagoPlazo = Math.round(p.saldo);
+          });
+        }
+
+        if (evolucionCuota) {
+          evolucionCuota.forEach(p => {
+            const m = p.mes + mp;
+            if (!dataMap[m]) dataMap[m] = { mes: m };
+            dataMap[m].conPrepagoCuota = Math.round(p.saldo);
+          });
+        }
+
+        const rawData = Object.values(dataMap).sort((a, b) => a.mes - b.mes);
+        const labels = rawData.map(d => {
+          if (d.mes === 0) return "Inicio";
+          if (d.mes === mp) return "Hoy";
+          if (d.mes % 12 === 0) return `Año ${d.mes / 12}`;
+          return d.mes;
+        });
+
+        if (chartInstance.current) {
+          chartInstance.current.destroy();
+        }
+
+        const ctx = chartRef.current.getContext('2d');
+
+        // Create Gradients for Corporate Look
+        const gradSin = ctx.createLinearGradient(0, 0, 0, 400);
+        gradSin.addColorStop(0, 'rgba(100, 116, 139, 0.3)');
+        gradSin.addColorStop(1, 'rgba(100, 116, 139, 0.01)');
+
+        const gradPlazo = ctx.createLinearGradient(0, 0, 0, 400);
+        gradPlazo.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+        gradPlazo.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
+
+        const gradCuota = ctx.createLinearGradient(0, 0, 0, 400);
+        gradCuota.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+        gradCuota.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+
+        const endLinesPlugin = {
+          id: 'endLines',
+          afterDatasetsDraw(chart) {
+            const { ctx: c, chartArea: { top, bottom, left, right }, scales: { x } } = chart;
+
+            const drawVertical = (mes, color, text, yOffset = 0) => {
+              const index = rawData.findIndex(d => d.mes === mes);
+              if (index === -1) return;
+              const xPos = x.getPixelForValue(index);
+              if (xPos < left || xPos > right) return;
+
+              const yBase = top + (bottom - top) * 0.2;
+              const yPos = yBase + yOffset;
+
+              c.save();
+
+              // Shadow for the badge
+              c.shadowColor = 'rgba(0, 0, 0, 0.3)';
+              c.shadowBlur = 6;
+              c.shadowOffsetY = 2;
+
+              // Badge Background (Pill shape) - Glassmorphism
+              const padding = 10;
+              c.font = '700 10.5px Inter';
+              const fullText = `Termino del Credito ${text}`;
+              const textWidth = c.measureText(fullText).width;
+              const badgeWidth = textWidth + (padding * 2);
+              const badgeHeight = 22;
+
+              c.beginPath();
+              c.roundRect(xPos - badgeWidth / 2, yPos - badgeHeight / 2, badgeWidth, badgeHeight, 11);
+              // semi-transparent background
+              c.fillStyle = color.replace(')', ', 0.82)').replace('rgb', 'rgba');
+              if (!color.includes('rgba')) {
+                // Fallback if chartColors are hex
+                c.fillStyle = color + 'D1';
+              }
+              c.fill();
+
+              // Border for the badge
+              c.strokeStyle = '#ffffff';
+              c.lineWidth = 1.5;
+              c.stroke();
+
+              // Reset shadow for text and line
+              c.shadowColor = 'transparent';
+
+              // Vertical Line (Starts at bottom, ends at badge) - Subtler
+              c.beginPath();
+              c.lineWidth = 1;
+              c.setLineDash([3, 3]);
+              c.strokeStyle = color;
+              c.globalAlpha = 0.6;
+              c.moveTo(xPos, bottom);
+              c.lineTo(xPos, yPos + badgeHeight / 2);
+              c.stroke();
+              c.globalAlpha = 1.0;
+
+              // Text
+              c.fillStyle = '#fff';
+              c.textAlign = 'center';
+              c.textBaseline = 'middle';
+              c.fillText(fullText, xPos, yPos);
+
+              c.restore();
+            };
+
+            const mpVal = +cr.mesesPagados;
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth();
+
+            const simResults = [];
+            if (evolucionPlazo && evolucionPlazo.length) {
+              const simMes = evolucionPlazo[evolucionPlazo.length - 1].mes || 0;
+              simResults.push({ mes: mpVal + simMes, type: 'plazo', color: chartColors.conPrepagoPlazo, year: currentYear + Math.floor((currentMonth + simMes) / 12) });
+            }
+            if (evolucionCuota && evolucionCuota.length) {
+              const simMes = evolucionCuota[evolucionCuota.length - 1].mes || 0;
+              simResults.push({ mes: mpVal + simMes, type: 'cuota', color: chartColors.conPrepagoCuota, year: currentYear + Math.floor((currentMonth + simMes) / 12) });
+            }
+
+            // Sort by month to handle collision detection predictably
+            simResults.sort((a, b) => a.mes - b.mes);
+
+            simResults.forEach((res, i) => {
+              let offset = 0;
+              // Increased threshold to 84 months (7 years) to account for badge width overlap
+              if (i > 0 && Math.abs(res.mes - simResults[i - 1].mes) < 84) {
+                offset = 55; // Increased staggering distance for maximum clarity
+              }
+              drawVertical(res.mes, res.color, res.year, offset);
+            });
+          }
+        };
+
+        chartInstance.current = new window.Chart(ctx, {
+          type: 'line',
+          plugins: [endLinesPlugin],
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'Sin Prepago',
+                data: rawData.map(d => d.sinPrepago),
+                borderColor: chartColors.sinPrepago,
+                backgroundColor: gradSin,
+                borderWidth: 2,
+                borderDash: [5, 5],
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                pointHoverBorderWidth: 3,
+                pointHoverBackgroundColor: '#0f172a', // Corporate dark background
+                tension: 0.4
+              },
+              {
+                label: 'Reduce Plazo',
+                data: rawData.map(d => d.conPrepagoPlazo),
+                borderColor: chartColors.conPrepagoPlazo,
+                backgroundColor: gradPlazo,
+                borderWidth: 3,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 8,
+                pointHoverBorderWidth: 3,
+                pointHoverBackgroundColor: '#0f172a', // Corporate dark background
+                tension: 0.4
+              },
+              {
+                label: 'Reduce Cuota',
+                data: rawData.map(d => d.conPrepagoCuota),
+                borderColor: chartColors.conPrepagoCuota,
+                backgroundColor: gradCuota,
+                borderWidth: 3,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 8,
+                pointHoverBorderWidth: 3,
+                pointHoverBackgroundColor: '#0f172a', // Corporate dark background
+                tension: 0.4
+              }
+            ],
+          },
+          options: {
+            layout: { padding: { top: 10, right: 20 } },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'top',
+                align: 'end',
+                labels: {
+                  color: '#fff',
+                  font: { family: 'Inter', size: 12, weight: '600' },
+                  usePointStyle: true,
+                  boxWidth: 8,
+                  boxHeight: 8
+                }
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                backgroundColor: 'rgba(24, 24, 27, 0.95)',
+                titleColor: '#fff',
+                titleFont: { family: 'Outfit', size: 14, weight: '700' },
+                bodyColor: '#e2e8f0',
+                bodyFont: { family: 'Inter', size: 13 },
+                borderColor: 'rgba(255, 255, 255, 0.15)',
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 8,
+                boxPadding: 6,
+                usePointStyle: true,
+                callbacks: {
+                  label: (context) => ` ${context.dataset.label}: UF ${fmt(context.parsed.y, 0)}`
+                }
+              },
+              hoyLine: {
+                color: 'var(--accent-rose)', // Make the 'Today' line neon rose
+                dash: [4, 4],
+                width: 2
+              }
+            },
+            scales: {
+              x: {
+                grid: {
+                  display: true,
+                  color: 'rgba(255, 255, 255, 0.03)',
+                  drawBorder: false
+                },
+                ticks: {
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  font: { family: 'Inter', size: 11 },
+                  maxTicksLimit: 12,
+                  callback: function (value, index) {
+                    const mes = rawData[index].mes;
+                    if (mes === 0) return "Inicio";
+                    if (mes === +cr.mesesPagados) return "Hoy";
+                    if (mes % 12 === 0) return `Año ${mes / 12}`;
+                    return null;
+                  }
+                }
+              },
+              y: {
+                border: { display: false },
+                grid: {
+                  color: 'rgba(255, 255, 255, 0.05)',
+                  drawTicks: false
+                },
+                ticks: {
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  font: { family: 'Inter', size: 11 },
+                  padding: 10,
+                  callback: (v) => `UF ${fmt(v, 0)}`
+                }
+              }
+            },
+            interaction: { mode: 'nearest', axis: 'x', intersect: false }
+          }
+        });
+
+        return () => {
+          if (chartInstance.current) {
+            chartInstance.current.destroy();
+          }
+        };
+      }, [evolucionSin, evolucionPlazo, evolucionCuota, mesesRestantes, saldoInicial, cr]);
+
+      return (
+        <div style={{ height: 400, padding: "10px 0", position: 'relative' }}>
+          <canvas ref={chartRef}></canvas>
+        </div>
+      );
+    };
+
+    // ── GRÁFICO BARRAS CUOTAS (NUEVO) ──────────────────────────────────────────
+    const GraficoCuotas = ({ evolucionCuota, cuotaBase, destino, valorUF }) => {
+      const chartRef = React.useRef(null);
+      const chartInstance = React.useRef(null);
+
+      React.useEffect(() => {
+        if (!chartRef.current || !evolucionCuota || evolucionCuota.length === 0) return;
+
+        if (chartInstance.current) {
+          chartInstance.current.destroy();
+        }
+
+        const ctx = chartRef.current.getContext('2d');
+        const labels = evolucionCuota.map(d => `Año ${d.ano}`);
+
+        // Gradient fill for the prepago bars (Corporate Blue)
+        const gradCon = ctx.createLinearGradient(0, 0, 0, 400);
+        gradCon.addColorStop(0, 'rgba(59, 130, 246, 0.85)');
+        gradCon.addColorStop(1, 'rgba(59, 130, 246, 0.1)');
+
+        // Custom plugin: draw horizontal reference line + value labels on bars
+        const refLinePlugin = {
+          id: 'refLine',
+          afterDatasetsDraw(chart) {
+            const { ctx: c, chartArea: { left, right, top, bottom }, scales: { y } } = chart;
+            if (!cuotaBase || !y) return;
+
+            // --- Horizontal dashed line for "Cuota Original" ---
+            const yPos = y.getPixelForValue(cuotaBase);
+            c.save();
+            c.beginPath();
+            c.setLineDash([6, 4]);
+            c.strokeStyle = '#f43f5e';
+            c.lineWidth = 2;
+            c.moveTo(left, yPos);
+            c.lineTo(right, yPos);
+            c.stroke();
+            c.setLineDash([]);
+
+            // Label for the reference line
+            c.fillStyle = '#f43f5e';
+            c.font = '600 12px Inter';
+            c.textAlign = 'right';
+            c.fillText(`Cuota fija: UF ${fmt(cuotaBase, 1)}`, right - 4, yPos - 8);
+            c.restore();
+          }
+        };
+
+        chartInstance.current = new window.Chart(ctx, {
+          type: 'bar',
+          plugins: [refLinePlugin],
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'Cuota con Prepago',
+                data: evolucionCuota.map(d => d.cuotaCon),
+                backgroundColor: gradCon,
+                borderColor: '#3b82f6',
+                borderWidth: 0,
+                borderRadius: 6,
+                borderSkipped: false,
+                barPercentage: 0.55,
+                categoryPercentage: 0.7
+              }
+            ],
+          },
+          options: {
+            layout: { padding: { top: 30, right: 16, left: 8 } },
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+              duration: 800,
+              easing: 'easeOutQuart'
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                align: 'end',
+                labels: {
+                  color: '#fff',
+                  font: { family: 'Inter', size: 12, weight: '600' },
+                  usePointStyle: true,
+                  boxWidth: 10,
+                  generateLabels: () => [
+                    { text: 'Cuota Original (fija)', fillStyle: '#f43f5e', strokeStyle: '#f43f5e', lineWidth: 2, lineDash: [6, 4], pointStyle: 'line', fontColor: '#fff' },
+                    { text: 'Cuota con Prepago', fillStyle: 'rgba(59, 130, 246, 0.85)', strokeStyle: '#3b82f6', lineWidth: 0, pointStyle: 'rect', fontColor: '#fff' }
+                  ]
+                }
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                backgroundColor: '#18181b',
+                titleColor: '#fff',
+                titleFont: { family: 'Outfit', size: 13, weight: '700' },
+                bodyColor: '#e2e8f0',
+                bodyFont: { family: 'Inter', size: 12 },
+                borderColor: 'rgba(255, 255, 255, 0.12)',
+                borderWidth: 1,
+                padding: 10,
+                cornerRadius: 6,
+                boxPadding: 4,
+                displayColors: false,
+                callbacks: {
+                  title: (items) => items[0]?.label || '',
+                  beforeBody: () => [`Cuota Original: UF ${fmt(cuotaBase, 2)}`],
+                  label: (context) => {
+                    const val = context.parsed.y;
+                    const diff = cuotaBase - val;
+                    const pct = ((diff / cuotaBase) * 100).toFixed(1);
+                    if (val <= 0) return 'Crédito liquidado';
+                    const lines = [`Cuota Proyectada: UF ${fmt(val, 2)}  (↓${pct}%)`];
+                    if (valorUF) {
+                      lines.push(`Cuota Proyectada: ${Math.round(val * valorUF).toLocaleString('es-CL')} CLP`);
+                    }
+                    return lines;
+                  },
+                  afterBody: (items) => {
+                    const val = items[0]?.parsed?.y || 0;
+                    const diff = cuotaBase - val;
+                    return diff > 0 ? [`Ahorro mensual: UF ${fmt(diff, 2)}`] : [];
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                border: { display: false },
+                ticks: {
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  font: { family: 'Inter', size: 11, weight: '500' },
+                  maxRotation: 0
+                }
+              },
+              y: {
+                border: { display: false },
+                beginAtZero: true,
+                suggestedMax: cuotaBase * 1.15,
+                grid: { color: 'rgba(255, 255, 255, 0.04)', drawTicks: false },
+                ticks: {
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  font: { family: 'Inter', size: 11 },
+                  padding: 10,
+                  callback: (v) => `UF ${fmt(v, 0)}`
+                }
+              }
+            },
+            interaction: { mode: 'index', axis: 'x', intersect: false }
+          }
+        });
+
+        return () => {
+          if (chartInstance.current) chartInstance.current.destroy();
+        };
+      }, [evolucionCuota, cuotaBase]);
+
+      return (
+        <div style={{ height: "100%", position: "relative" }}>
+          <canvas ref={chartRef}></canvas>
+        </div>
+      );
+    };
+
+    // ── ESCENARIO 1 (TASAS E INFLACIÓN) ────────────────────────────────────────────────────────
+    const Escenario1 = ({ cr, saldoActual, mesesRestantes, interesesBase, pr, cuotaBase, valorUF, cae, inflacion, setInflacion, retornoInv, setRetornoInv }) => {
+      // Evaluar escenario actual
+      const { simularPrepago } = window.FinancialLogic;
+      const minPrepago = Math.ceil(saldoActual * 0.05); // Límite legal 5%
+      const montoEstrategico = Math.max(minPrepago, +pr.monto);
+      const { totalMultas } = simularPrepago(
+        saldoActual, +cr.tna, mesesRestantes, montoEstrategico, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, pr.destino, cuotaBase, +cr.costoPrepago, +cr.seguros
+      );
+
+      // MODELO B: Arbitraje de Tasas (Criterio de Fisher Modificado)
+      // tnaDecimal = TNA del crédito (costo de la deuda), NO seguros
+      const tnaDecimal = +cr.tna / 100;
+      const infDecimal = inflacion / 100;
+      const retDecimal = retornoInv / 100;
+
+      const i_nom = ((1 + tnaDecimal) * (1 + infDecimal)) - 1; // Costo Efectivo Nominal
+      const deltaFisher = i_nom - retDecimal; // Diferencial Neto
+      const piElegible = ((1 + retDecimal) / (1 + tnaDecimal)) - 1; // Punto de equilibrio inflacionario
+
+      // Decisión Final
+      const esDominante = deltaFisher > 0;
+
+      return (
+        <div className="animate-fade" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+          <div className="grid-2" style={{ gap: 16 }}>
+            {/* ────── MODELO A: PUNTO DE EQUILIBRIO DE INFLACIÓN ────── */}
+            <div className="glass-card" style={{ padding: "16px", display: "flex", flexDirection: "column" }}>
+              <h3 style={{ fontSize: 14, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "var(--accent-indigo)" }}>A.</span> Punto de Equilibrio (π*)
+              </h3>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.5 }}>
+                En Chile, la deuda hipotecaria está en UF y la inversión en pesos (CLP). Este modelo calcula la <strong>inflación exacta</strong> en la que tu crédito se encarece tanto que empata con la rentabilidad de tu inversión.
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.03)", padding: "16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)", marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, textTransform: "uppercase" }}>Break-even (π*)</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#fff" }}>{(piElegible * 100).toFixed(2)}%</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, textTransform: "uppercase" }}>Tu Proyección (π)</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: inflacion > (piElegible * 100) ? "var(--accent-emerald)" : "var(--accent-rose)" }}>{(+inflacion).toFixed(2)}%</div>
+                </div>
+              </div>
+
+              {/* Regla de Decisión Dinámica */}
+              {(() => {
+                const piPct = piElegible * 100;
+                const upperBound = piPct + 0.25;
+                const lowerBound = piPct - 0.25;
+                const inf = +inflacion;
+                let bg, color, title, desc;
+
+                if (inf > upperBound) {
+                  bg = "rgba(16,185,129,0.1)"; color = "#10b981";
+                  title = "🟢 PREPAGO GANA"; desc = "La inflación proyectada es demasiado alta. Tu deuda en UF está creciendo más rápido de lo que rendiría el capital en el banco. Matemática y financieramente, te conviene liquidar la deuda.";
+                } else if (inf < lowerBound) {
+                  bg = "rgba(244,63,94,0.1)"; color = "#f43f5e";
+                  title = "🔴 INVERSIÓN GANA"; desc = "Con una inflación baja, la UF crece lento. El dinero tiene mucha más fuerza multiplicadora rindiendo en tu instrumento financiero que destruyendo pasivos estáticos.";
+                } else {
+                  bg = "rgba(245,158,11,0.1)"; color = "#f59e0b";
+                  title = "🟡 ZONA DE INDIFERENCIA"; desc = `La inflación proyectada está extremadamente cerca del punto de equilibrio [${lowerBound.toFixed(2)}% - ${upperBound.toFixed(2)}%]. En este margen, la rentabilidad es casi idéntica; elige la opción que te dé mayor liquidez o tranquilidad psicológica.`;
+                }
+
+                return (
+                  <div style={{ background: bg, border: `1px solid ${bg.replace("0.1)", "0.3)")}`, padding: "16px", borderRadius: 8, marginTop: "auto" }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: color, marginBottom: 8, letterSpacing: "0.05em" }}>{title}</div>
+                    <div style={{ fontSize: 12, color: color, opacity: 0.9, lineHeight: 1.4 }}>{desc}</div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* ────── MODELO B: ARBITRAJE Y PARIDAD ────── */}
+            <div className="glass-card" style={{ padding: "16px", display: "flex", flexDirection: "column" }}>
+              <h3 style={{ fontSize: 14, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "var(--accent-indigo)" }}>B.</span> Arbitraje y Paridad (Fisher)
+              </h3>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.5 }}>
+                Transforma el costo en UF de tu crédito a una <strong>Tasa Anual Nominal (CLP)</strong> para compararlo directamente (peras con peras) con el retorno de tu inversión bancaria.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 12 }}>
+                <div style={{ background: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 8, textAlign: "center" }}>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase" }}>Costo Total Efectivo Nominal</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "var(--accent-cyan)" }}>{(i_nom * 100).toFixed(2)}%</div>
+                </div>
+                <div style={{ background: deltaFisher > 0 ? "rgba(16,185,129,0.1)" : "rgba(244,63,94,0.1)", padding: 12, borderRadius: 8, textAlign: "center", border: `1px solid ${deltaFisher > 0 ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}` }}>
+                  <div style={{ fontSize: 10, color: deltaFisher > 0 ? "#10b981" : "#f43f5e", marginBottom: 6, textTransform: "uppercase" }}>Spread de Arbitraje Neto</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: deltaFisher > 0 ? "#10b981" : "#f43f5e" }}>
+                    {deltaFisher > 0 ? '+' : ''}{(deltaFisher * 100).toFixed(2)}%
+                  </div>
+                </div>
+                <div style={{ background: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 8, textAlign: "center" }}>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase" }}>Retorno Nominal Inversión</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{(+retornoInv).toFixed(2)}%</div>
+                </div>
+              </div>
+              <div style={{
+                background: esDominante ? "rgba(16,185,129,0.1)" : "rgba(244,63,94,0.1)",
+                border: `1px solid ${esDominante ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}`,
+                color: esDominante ? "#10b981" : "#f43f5e",
+                padding: "16px", borderRadius: 8, marginTop: "auto"
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 800, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                  {esDominante ? '🟢 Costo Crédito > Retorno Inversión' : '🔴 Costo Crédito < Retorno Inversión'}
+                </div>
+                <div style={{ fontSize: 12, textAlign: "center", opacity: 0.9, lineHeight: 1.4, color: esDominante ? "#10b981" : "#f43f5e" }}>
+                  {esDominante
+                    ? `Tu crédito te cuesta ${(i_nom * 100).toFixed(2)}% anual nominal, pero tu dinero solo rinde ${(+retornoInv).toFixed(2)}%. Estás perdiendo patrimonio manteniendo dinero invertido en lugar de pagar deuda cara.`
+                    : `Cerrar este crédito es ineficiente. El costo financiero en UF sale más barato (${(i_nom * 100).toFixed(2)}% nominal) que lo que el banco te paga por mantener el dinero en fondos (${(+retornoInv).toFixed(2)}%). Acumula capital tranquilo.`}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ── ESCENARIO 2 (VALOR PRESENTE & RIESGO ESTOCÁSTICO) ───────────────────────────────────
+    const Escenario2 = ({ cr, saldoActual, mesesRestantes, interesesBase, pr, cuotaBase, valorUF, cae, inflacion, setInflacion, retornoInv, setRetornoInv }) => {
+      // Evaluar escenario actual
+      const { simularPrepago, tasaMensual } = window.FinancialLogic;
+      const minPrepago = Math.ceil(saldoActual * 0.05);
+      const montoEstrategico = Math.max(minPrepago, +pr.monto);
+      const { mesesReales, totalIntereses, totalMultas } = simularPrepago(
+        saldoActual, +cr.tna, mesesRestantes, montoEstrategico, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, pr.destino, cuotaBase, +cr.costoPrepago, +cr.seguros
+      );
+
+      const mesesAhorrados = Math.max(0, mesesRestantes - mesesReales);
+      const ahorroIntereses = interesesBase - totalIntereses;
+      const ahorroSeguros = mesesAhorrados * (+cr.seguros || 0);
+      const ahorroBruto = ahorroIntereses + ahorroSeguros;
+      const ahorroNeto = ahorroBruto - totalMultas;
+
+      // Variables Macro para Monte Carlo
+      // tnaDecimal = TNA del crédito (costo de la deuda), NO seguros
+      const tnaDecimal = +cr.tna / 100;
+      const infDecimal = inflacion / 100;
+      const retDecimal = retornoInv / 100;
+      const i_nom = ((1 + tnaDecimal) * (1 + infDecimal)) - 1;
+      const deltaFisher = i_nom - retDecimal;
+
+      // MODELO C: Valor Presente Neto (VPN)
+      const rhoMensual = tasaMensual(retornoInv);
+      const flujoMensual = cuotaBase + (+cr.seguros || 0);
+      const calcPV = (flujo, n, r) => r === 0 ? flujo * n : flujo * (1 - Math.pow(1 + r, -n)) / r;
+
+      const vpContrato = calcPV(flujoMensual, mesesRestantes, rhoMensual);
+      const vpPrepago = montoEstrategico + totalMultas + calcPV(flujoMensual, mesesReales, rhoMensual);
+      const ahorroVPN = vpContrato - vpPrepago;
+      const convieneVPN = ahorroVPN > 0;
+
+      // MODELO D: Simulación Estocástica Simplificada (Monte Carlo)
+      const zScore = deltaFisher / Math.sqrt(0.015 ** 2 + 0.02 ** 2);
+      let probConveniencia = 1 / (1 + Math.exp(-1.702 * zScore));
+      if (deltaFisher < -0.02) probConveniencia = 0.05 + Math.random() * 0.1;
+      if (deltaFisher > 0.05) probConveniencia = 0.90 + Math.random() * 0.05;
+
+      const volatilidadAhorro = ahorroNeto * 0.35;
+      const mcRango = [Math.max(0, ahorroNeto - volatilidadAhorro), ahorroNeto + volatilidadAhorro];
+
+      return (
+        <div className="animate-fade" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+          <div className="grid-2" style={{ gap: 16 }}>
+            {/* ────── MODELO C: VALOR PRESENTE NETO ────── */}
+            <div className="glass-card" style={{ padding: "16px", display: "flex", flexDirection: "column" }}>
+              <h3 style={{ fontSize: 14, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "var(--accent-indigo)" }}>C.</span> Valor Presente Neto (VPN)
+              </h3>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.5 }}>
+                El dinero en el futuro vale menos que hoy. Este modelo <strong>descuenta todos los flujos de tus dividendos futuros</strong> de vuelta al día de hoy, usando tu rentabilidad de inversión como barrera de descuento.
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, background: "rgba(255,255,255,0.03)", padding: "12px", borderRadius: "8px 8px 0 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>VP Contrato Base</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>Sin prepagar nada</div>
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", alignSelf: "center" }}>UF {fmt(vpContrato)}</div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, background: "rgba(255,255,255,0.03)", padding: "12px", borderRadius: "0 0 8px 8px" }}>
+                <div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>VP Estrategia (+ Prepago)</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>Inyección + Nuevos flujos</div>
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", alignSelf: "center" }}>UF {fmt(vpPrepago)}</div>
+              </div>
+
+              <div style={{
+                background: convieneVPN ? "rgba(16,185,129,0.1)" : "rgba(244,63,94,0.1)",
+                border: `1px solid ${convieneVPN ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}`,
+                padding: "16px", borderRadius: 8, marginTop: "auto"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: convieneVPN ? "#10b981" : "#f43f5e", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Creación Neta de Patrimonio
+                  </span>
+                  <span style={{ fontSize: 24, fontWeight: 800, color: convieneVPN ? "#10b981" : "#f43f5e" }}>
+                    {convieneVPN ? "+" : ""}UF {fmt(ahorroVPN)}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: convieneVPN ? "#10b981" : "#f43f5e", opacity: 0.9, lineHeight: 1.4 }}>
+                  {convieneVPN
+                    ? `Al ejecutar esta estrategia, estás "destruyendo obligaciones" y agregando directamente riqueza presente y pura a tu hoja de balance personal.`
+                    : `Destinar capital hoy para comprar deuda barata está "destruyendo" valor presente en tu patrimonio neto en favor del banco.`}
+                </div>
+              </div>
+            </div>
+
+            {/* ────── MODELO D: MONTE CARLO ────── */}
+            <div className="glass-card" style={{ padding: "16px", background: "linear-gradient(135deg, rgba(24,24,27,1) 0%, rgba(245,158,11,0.05) 100%)", display: "flex", flexDirection: "column" }}>
+              <h3 style={{ fontSize: 14, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "var(--accent-amber)" }}>D.</span> Monte Carlo (Probabilidades)
+              </h3>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.5 }}>
+                Las inversiones rara vez tienen un retorno fijo asegurado. Este modelo somete tu retorno del {retornoInv}% a un entorno de <strong>caos y volatilidad estocástica</strong> para medir la verdadera probabilidad de vencer al banco en el mundo real.
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, background: "rgba(0,0,0,0.2)", padding: "16px", borderRadius: 8, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 42, fontWeight: 800, color: "var(--accent-amber)", lineHeight: 1 }}>{(probConveniencia * 100).toFixed(1)}%</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
+                  <strong>Probabilidad de Éxito.</strong><br />
+                  Si corremos esta estrategia 10,000 veces en la economía, esta es la cantidad de veces que el pago del crédito es superior a tu inversión base.
+                </div>
+              </div>
+
+              <div style={{ background: "rgba(255,255,255,0.03)", padding: "16px", borderRadius: 8, marginTop: "auto" }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10, textTransform: "uppercase", fontWeight: 600 }}>Espectro de Ahorro Neto UF (P10 - P90)</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>UF {fmt(mcRango[0], 0)}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Peor Escenario</div>
+                  </div>
+                  <div style={{ flex: 1, position: "relative" }}>
+                    <div style={{ height: 6, background: "rgba(0,0,0,0.4)", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{ width: "100%", height: "100%", background: "linear-gradient(90deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.8), rgba(245, 158, 11, 0.2))", borderRadius: 3, opacity: 0.8 }}></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>UF {fmt(mcRango[1], 0)}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Mejor Escenario</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 12, textAlign: "center", fontStyle: "italic" }}>
+                  Bajo un estrés de mercado del 35% de desviación estándar.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ── GRÁFICO ESCENARIOS (MULTI-LÍNEA) ─────────────────────────────────────────
+    const GraficoEscenarios = ({ saldoActual, cr, mesesRestantes, pr, cuotaBase }) => {
+      const chartRef = React.useRef(null);
+      const chartInstance = React.useRef(null);
+
+      React.useEffect(() => {
+        if (!chartRef.current) return;
+        if (chartInstance.current) chartInstance.current.destroy();
+
+        const ctx = chartRef.current.getContext('2d');
+        const { simularPrepago, calcularInteresesTotales } = window.FinancialLogic;
+        const minPrepago = Math.ceil(saldoActual * 0.05);
+
+        // Generate the same 4 strategic amounts used in Escenarios
+        const findOptimalAmount = () => {
+          let bestRoi = -Infinity, bestAmount = minPrepago;
+          const interesesBase = calcularInteresesTotales(saldoActual, +cr.tna, mesesRestantes);
+          for (let m = minPrepago; m <= Math.min(saldoActual * 0.5, 2000); m += 10) {
+            const s = simularPrepago(saldoActual, +cr.tna, mesesRestantes, m, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, pr.destino, cuotaBase, +cr.costoPrepago, +cr.seguros);
+            const roi = s.totalPrepagado > 0 ? ((interesesBase - s.totalIntereses - s.totalMultas) / s.totalPrepagado) * 100 : 0;
+            if (roi > bestRoi) { bestRoi = roi; bestAmount = m; }
+          }
+          const lo = Math.max(minPrepago, bestAmount - 15), hi = Math.min(saldoActual, bestAmount + 15);
+          for (let m = lo; m <= hi; m++) {
+            const s = simularPrepago(saldoActual, +cr.tna, mesesRestantes, m, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, pr.destino, cuotaBase, +cr.costoPrepago, +cr.seguros);
+            const roi = s.totalPrepagado > 0 ? ((interesesBase - s.totalIntereses - s.totalMultas) / s.totalPrepagado) * 100 : 0;
+            if (roi > bestRoi) { bestRoi = roi; bestAmount = m; }
+          }
+          return bestAmount;
+        };
+        const montoOptimo = findOptimalAmount();
+        const candidates = new Set([minPrepago, montoOptimo]);
+        const medio = Math.round(Math.max(montoOptimo * 1.5, minPrepago * 3));
+        if (medio < saldoActual && medio !== montoOptimo) candidates.add(medio);
+        const agresivo = Math.round(Math.max(montoOptimo * 3, minPrepago * 6));
+        if (agresivo < saldoActual && agresivo !== montoOptimo && agresivo !== medio) candidates.add(agresivo);
+        [minPrepago * 2, montoOptimo * 2].map(Math.round).forEach(e => {
+          if (candidates.size < 4 && e > minPrepago && e < saldoActual && !candidates.has(e)) candidates.add(e);
+        });
+        const montos = [...candidates].sort((a, b) => a - b).slice(0, 4);
+
+        // Colors for the 4 curves
+        const curveColors = ['#f59e0b', '#10b981', '#06b6d4', '#8b5cf6'];
+
+        // Generate datasets: baseline + 4 scenarios
+        // Baseline: sin prepago
+        const baseSim = simularPrepago(saldoActual, +cr.tna, mesesRestantes, 0, pr.frecuencia, 0, pr.destino, cuotaBase, +cr.costoPrepago, +cr.seguros);
+        const basePoints = baseSim.evolucionSin.filter((_, i) => i % 6 === 0 || i === baseSim.evolucionSin.length - 1)
+          .map(p => ({ x: p.mes, y: p.saldo }));
+
+        const datasets = [{
+          label: 'Sin Prepago',
+          data: basePoints,
+          borderColor: '#64748b',
+          borderWidth: 2,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false
+        }];
+
+        montos.forEach((m, i) => {
+          const s = simularPrepago(saldoActual, +cr.tna, mesesRestantes, m, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, pr.destino, cuotaBase, +cr.costoPrepago, +cr.seguros);
+          const points = s.evolucionCon.filter((_, j) => j % 6 === 0 || j === s.evolucionCon.length - 1)
+            .map(p => ({ x: p.mes, y: p.saldo }));
+          datasets.push({
+            label: `UF ${m}${m === montoOptimo ? ' (Óptimo)' : ''}`,
+            data: points,
+            borderColor: curveColors[i],
+            borderWidth: m === montoOptimo ? 3 : 2,
+            pointRadius: 0,
+            tension: 0.3,
+            fill: false
+          });
+        });
+
+        chartInstance.current = new window.Chart(ctx, {
+          type: 'line',
+          data: { datasets },
+          options: {
+            layout: { padding: { top: 10, right: 16, left: 8 } },
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            plugins: {
+              legend: {
+                position: 'top', align: 'end',
+                labels: {
+                  color: '#fff',
+                  font: { family: 'Inter', size: 11, weight: '600' },
+                  usePointStyle: true, boxWidth: 8, padding: 16
+                }
+              },
+              tooltip: {
+                mode: 'nearest',
+                intersect: false,
+                backgroundColor: '#18181b',
+                titleColor: '#fff',
+                titleFont: { family: 'Outfit', size: 13, weight: '700' },
+                bodyColor: '#e2e8f0',
+                bodyFont: { family: 'Inter', size: 12 },
+                borderColor: 'rgba(255, 255, 255, 0.12)',
+                borderWidth: 1,
+                padding: 10,
+                cornerRadius: 6,
+                displayColors: true,
+                callbacks: {
+                  title: (items) => `Mes ${items[0]?.parsed?.x || 0}`,
+                  label: (ctx) => ` ${ctx.dataset.label}: UF ${fmt(ctx.parsed.y, 0)}`
+                }
+              }
+            },
+            scales: {
+              x: {
+                type: 'linear',
+                title: { display: true, text: 'Meses', color: 'rgba(255,255,255,0.4)', font: { family: 'Inter', size: 11 } },
+                grid: { display: false },
+                border: { display: false },
+                ticks: {
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  font: { family: 'Inter', size: 11 },
+                  maxRotation: 0,
+                  callback: (v) => {
+                    const a = Math.floor(v / 12);
+                    return a > 0 ? `Año ${a}` : `${v}m`;
+                  }
+                }
+              },
+              y: {
+                border: { display: false },
+                beginAtZero: true,
+                grid: { color: 'rgba(255, 255, 255, 0.04)', drawTicks: false },
+                ticks: {
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  font: { family: 'Inter', size: 11 },
+                  padding: 10,
+                  callback: (v) => `UF ${fmt(v, 0)}`
+                }
+              }
+            },
+            interaction: { mode: 'nearest', axis: 'x', intersect: false }
+          }
+        });
+
+        return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+      }, [saldoActual, cr, mesesRestantes, pr, cuotaBase]);
+
+      return (
+        <div style={{ height: "100%", position: "relative" }}>
+          <canvas ref={chartRef}></canvas>
+        </div>
+      );
+    };
+
+    // ── REPORTE PDF (Oculto en DOM) ──────────────────────────────────────────────
+    const ReportePDF = React.forwardRef(({ cr, pr, sim, saldoActual, mesesRestantes, cuotaBase, interesesBase, ahorroNeto, mesesAhorrados, inflacion, retornoInv, simularPrepago }, ref) => {
+      const { tasaMensual } = window.FinancialLogic;
+      // Formateadores locales para PDF
+      const fNum = (num) => (+num).toLocaleString('es-CL', { maximumFractionDigits: 1 });
+      const fMon = (num) => `UF ${fNum(num)}`;
+      const fmtM = (m) => `${Math.floor(m / 12)}a ${m % 12}m`;
+
+      // Wrapper para simular escenarios
+      const runSim = (monto) => {
+        const s = simularPrepago(saldoActual, +cr.tna, mesesRestantes, monto, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, pr.destino, cuotaBase, +cr.costoPrepago, +cr.seguros);
+        const ahorroInt = interesesBase - s.totalIntereses;
+        return {
+          ...s,
+          ahorroNeto: ahorroInt - s.totalMultas,
+          ahorroIntereses: ahorroInt,
+          mesesAhorrados: mesesRestantes - s.mesesReales,
+          nuevaCuota: s.nuevaCuota
+        };
+      };
+
+      // Métricas Avanzadas (Fisher & VPN)
+      const tnaDecimal = (+cr.tna) / 100;
+      const infDecimal = inflacion / 100;
+      const retDecimal = retornoInv / 100;
+      const i_nom = ((1 + tnaDecimal) * (1 + infDecimal)) - 1; // Costo Nominal
+      const deltaFisher = i_nom - retDecimal;
+
+      const rhoMensual = tasaMensual(retornoInv);
+      const vpContrato = cuotaBase * (1 - Math.pow(1 + rhoMensual, -mesesRestantes)) / rhoMensual;
+      const vpPrepago = pr.monto + sim.totalMultas + (sim.nuevaCuota * (1 - Math.pow(1 + rhoMensual, -sim.mesesReales)) / rhoMensual);
+      const ahorroVPN = vpContrato - vpPrepago;
+
+      // Escenarios comparativos (Page 3)
+      const nivelesPrepago = [50, 100, 200, 300, 500, 800];
+      const maxAhorro = Math.max(0, ...nivelesPrepago.map(m => runSim(m).ahorroNeto));
+
+      // ── SVG Math Helpers (Page 4)
+      const maxMes = mesesRestantes || 1;
+      const maxSaldo = saldoActual || 1;
+      const mapX = (mes) => 60 + (mes / maxMes) * 570;
+      const mapY = (saldo) => 245 - (saldo / maxSaldo) * 215;
+
+      const makePath = (data) => {
+        if (!data || data.length === 0) return "";
+        return data.map((d, i) => `${i === 0 ? 'M' : 'L'}${mapX(d.mes)},${mapY(d.saldo)}`).join(' ');
+      };
+
+      const pathSin = makePath(sim.evolucionSin);
+      const pathCon = makePath(sim.evolucionCon);
+      // Para las áreas, cerramos el polígono hacia el eje X
+      const lastMesCon = sim.evolucionCon.length > 0 ? sim.evolucionCon[sim.evolucionCon.length - 1].mes : 0;
+      const areaSin = `${pathSin} L${mapX(maxMes)},245 L60,245 Z`;
+      const areaCon = `${pathCon} L${mapX(lastMesCon)},245 L60,245 Z`;
+
+      return (
+        <div ref={ref} className="pdf-report-container">
+          {/* ══════════════════════════════════════════════════════════════
+               PÁGINA 1 — PORTADA
+          ═══════════════════════════════════════════════════════════════ */}
+          <div className="page cover">
+            <div className="cover-top-bar"></div>
+            <div className="cover-body">
+              <div className="cover-eyebrow">Análisis Financiero Confidencial</div>
+              <div className="cover-title">Estrategia de<br /><span>Prepago</span> Hipotecario</div>
+              <div className="cover-subtitle">Evaluación integral de impacto financiero, proyección de ahorro, análisis de sensibilidad y recomendación de estrategia óptima de amortización anticipada según supuestos macroeconómicos.</div>
+              <div className="cover-divider"></div>
+
+              <div className="cover-hero-stat">
+                <div className="cover-stat-box">
+                  <label>Ahorro proyectado en intereses</label>
+                  <div className="val">{fMon(ahorroNeto > 0 ? ahorroNeto : 0)}</div>
+                  <div className="sub">Neto de multa · Escenario simulado</div>
+                </div>
+                {pr.destino === "plazo" ? (
+                  <div className={`cover-stat-box ${ahorroNeto > 0 ? 'green' : ''}`}>
+                    <label>Reducción del plazo</label>
+                    <div className="val">{fmtM(Math.max(0, mesesAhorrados))}</div>
+                    <div className="sub">Con prepago {pr.frecuencia} de {fMon(pr.monto)}</div>
+                  </div>
+                ) : (
+                  <div className={`cover-stat-box ${ahorroNeto > 0 ? 'green' : ''}`}>
+                    <label>Reducción de cuota</label>
+                    <div className="val">{fMon(Math.max(0, cuotaBase - sim.nuevaCuota))}</div>
+                    <div className="sub">Nueva cuota const.: {fMon(sim.nuevaCuota)}</div>
+                  </div>
+                )}
+              </div>
+
+              <div className="cover-meta">
+                <div className="cover-meta-item">
+                  <label>Cliente</label>
+                  <span>Generado Localmente</span>
+                </div>
+                <div className="cover-meta-item">
+                  <label>Fecha del informe</label>
+                  <span>{new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}</span>
+                </div>
+                <div className="cover-meta-item">
+                  <label>TNA Base</label>
+                  <span>{cr.tna}%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="cover-footer">
+              <div className="cover-footer-brand">SIMULADOR HIPOTECARIO</div>
+              <div className="cover-footer-conf">Documento confidencial · Solo para uso del cliente</div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════
+               PÁGINA 2 — TABLA DE CONTENIDOS
+          ═══════════════════════════════════════════════════════════════ */}
+          <div className="page inner-page">
+            <div className="page-header">
+              <div>
+                <div className="page-section-label">Contenido</div>
+                <div className="page-title">Tabla de Contenidos</div>
+              </div>
+              <div className="page-number"><strong>Índice</strong></div>
+            </div>
+
+            <div style={{ fontSize: 13, color: "#0f172a", lineHeight: 2.1, fontFamily: 'Inter' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+                <span>1. Portada y Resumen Ejecutivo</span>
+                <span style={{ color: '#94a3b8' }}>1</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+                <span>2. Parámetros de Entrada y Supuestos</span>
+                <span style={{ color: '#94a3b8' }}>3</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+                <span>3. Diagnóstico del Crédito Actual</span>
+                <span style={{ color: '#94a3b8' }}>4</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+                <span>4. Análisis de Escenarios de Prepago</span>
+                <span style={{ color: '#94a3b8' }}>5</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+                <span>5. Proyección Financiera y Evolución del Saldo</span>
+                <span style={{ color: '#94a3b8' }}>6</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+                <span>6. Análisis de Sensibilidad y Riesgos</span>
+                <span style={{ color: '#94a3b8' }}>7</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+                <span>7. Recomendación Estratégica y Plan de Acción</span>
+                <span style={{ color: '#94a3b8' }}>8</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+                <span>8. Disclaimers y Consideraciones Legales</span>
+                <span style={{ color: '#94a3b8' }}>9</span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, padding: '12px', background: 'rgba(99, 102, 241, 0.08)', borderLeft: `4px solid #6366f1`, borderRadius: 4 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Documento de Referencia</div>
+              <div style={{ fontSize: 10, color: '#0f172a', lineHeight: 1.5 }}>
+                Este reporte ha sido generado localmente utilizando datos bancarios y supuestos macroeconómicos ingresados en el simulador. Los cálculos se basan en sistema de amortización francesa con compounding mensual. La información contenida es válida únicamente para la fecha de emisión y bajo los supuestos especificados en la página siguiente.
+              </div>
+            </div>
+
+            <div className="page-footer">
+              <div><strong>Simulador de Prepago Hipotecario</strong> · Análisis Financiero Confidencial</div>
+              <div>Generado automáticamente · {new Date().toLocaleDateString('es-CL')}</div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════
+               PÁGINA 3 — PARÁMETROS DE ENTRADA
+          ═══════════════════════════════════════════════════════════════ */}
+          <div className="page inner-page">
+            <div className="page-header">
+              <div>
+                <div className="page-section-label">Configuración</div>
+                <div className="page-title">Parámetros de Entrada y Supuestos</div>
+              </div>
+              <div className="page-number"><strong>02</strong>Parámetros</div>
+            </div>
+
+            {/* Sección Crédito */}
+            <div className="section-title">Especificaciones del Crédito Hipotecario</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Capital Original</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{fMon(cr.capital)}</div>
+              </div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Plazo Total</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{fmtM(+cr.plazo)}</div>
+              </div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Meses Pagados</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{fmtM(+cr.mesesPagados)}</div>
+              </div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>TNA (Nominal)</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{cr.tna}%</div>
+              </div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Coste Seguros</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{cr.seguros} UF</div>
+              </div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Multa por Prepago</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{cr.costoPrepago}%</div>
+              </div>
+            </div>
+
+            {/* Sección Prepago */}
+            <div className="section-title">Estrategia de Prepago Simulada</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Monto Prepago</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#15803d' }}>{fMon(pr.monto)}</div>
+              </div>
+              <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Frecuencia</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#15803d', textTransform: 'capitalize' }}>{pr.frecuencia}</div>
+              </div>
+              <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Mes Inicio</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#15803d' }}>Mes {pr.mesInicio}</div>
+              </div>
+              <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Destino</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#15803d', textTransform: 'capitalize' }}>{pr.destino === 'plazo' ? 'Reducir Plazo' : 'Reducir Cuota'}</div>
+              </div>
+            </div>
+
+            {/* Sección Supuestos Macroeconómicos */}
+            <div className="section-title">Supuestos Macroeconómicos</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ padding: '12px', background: '#fef3c7', borderRadius: 6, border: '1px solid #fde68a' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Inflación Proyectada</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#92400e' }}>{inflacion}%</div>
+              </div>
+              <div style={{ padding: '12px', background: '#fef3c7', borderRadius: 6, border: '1px solid #fde68a' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Retorno Inversión (CLP)</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#92400e' }}>{retornoInv}%</div>
+              </div>
+            </div>
+
+            <div className="page-footer">
+              <div><strong>Simulador de Prepago Hipotecario</strong> · Análisis Personalizado</div>
+              <div>Todos los cálculos basados en estos parámetros · Sistema de amortización francesa</div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════
+               PÁGINA 4 — RESUMEN EJECUTIVO
+          ═══════════════════════════════════════════════════════════════ */}
+          <div className="page inner-page">
+            <div className="page-header">
+              <div>
+                <div className="page-section-label">Resumen Ejecutivo</div>
+                <div className="page-title">Diagnóstico del Crédito Actual</div>
+              </div>
+              <div className="page-number"><strong>04</strong>Resumen</div>
+            </div>
+
+            {/* Callout principal */}
+            <div className={`callout ${ahorroNeto > 0 ? 'green' : 'red'}`}>
+              <strong>Conclusión principal: </strong>
+              {ahorroNeto > 0
+                ? <>Con una estrategia de prepago {pr.frecuencia} de <strong>{fMon(pr.monto)}</strong>, el crédito puede mejorar su costo financiero, generando un ahorro neto de <strong>{fMon(ahorroNeto)}</strong> (incluye intereses y seguros ahorrados), una vez descontada la multa estimada.</>
+                : <>La estrategia de prepago {pr.frecuencia} de <strong>{fMon(pr.monto)}</strong> genera un costo en multas (<strong>{fMon(sim.totalMultas)}</strong>) que supera el ahorro de intereses y seguros. Esta decisión destruye patrimonio por <strong>{fMon(Math.abs(ahorroNeto))}</strong>.</>}
+            </div>
+
+            {/* KPIs estado actual */}
+            <div className="section-title">Estado actual del crédito</div>
+            <div className="kpi-grid kpi-grid-4" style={{ marginBottom: 12 }}>
+              <div className="kpi-box navy">
+                <div className="kpi-label">Saldo actual</div>
+                <div className="kpi-value">{fMon(saldoActual)}</div>
+                <div className="kpi-sub">Capital pendiente</div>
+              </div>
+              <div className="kpi-box">
+                <div className="kpi-label">Dividendo mensual</div>
+                <div className="kpi-value">{fMon(dividendoTotal)}</div>
+                <div className="kpi-sub">Incluye seguros</div>
+              </div>
+              <div className="kpi-box">
+                <div className="kpi-label">Plazo restante</div>
+                <div className="kpi-value">{fmtM(mesesRestantes)}</div>
+                <div className="kpi-sub">{mesesRestantes} meses</div>
+              </div>
+              <div className="kpi-box red">
+                <div className="kpi-label">Int. restantes</div>
+                <div className="kpi-value">{fMon(interesesBase)}</div>
+                <div className="kpi-sub">Sin prepago</div>
+              </div>
+            </div>
+
+            {/* KPIs del crédito */}
+            <div className="section-title">Condiciones del crédito</div>
+            <div className="kpi-grid kpi-grid-3" style={{ marginBottom: 10 }}>
+              <div className="kpi-box">
+                <div className="kpi-label">Monto original</div>
+                <div className="kpi-value">{fMon(cr.capital)}</div>
+                <div className="kpi-sub">Capital pactado</div>
+              </div>
+              <div className="kpi-box">
+                <div className="kpi-label">Rentab. Inversión (ρ)</div>
+                <div className="kpi-value">{retornoInv}%</div>
+                <div className="kpi-sub">Costo de oportunidad alterno</div>
+              </div>
+              <div className="kpi-box">
+                <div className="kpi-label">Multa est. primer pago</div>
+                <div className="kpi-value">{fMon((cr.costoPrepago / 100) * saldoActual)}</div>
+                <div className="kpi-sub">{cr.costoPrepago}% sobre prepagado</div>
+              </div>
+            </div>
+
+            {/* Insights */}
+            <div className="section-title">Hallazgos clave y Evaluación Financiera Avanzada</div>
+            <div className="three-col">
+              <div className="insight-box" data-n="01">
+                <div className="insight-title">El costo real nominal (Fisher)</div>
+                <div className="insight-body">Considerando una inflación proyectada del {inflacion}% y un CAE del {cr.tna}%, el costo efectivo anualizado de su deuda asciende al <strong>{(i_nom * 100).toFixed(2)}%</strong> nominal.</div>
+              </div>
+              <div className="insight-box" data-n="02">
+                <div className="insight-title">Análisis de Arbitraje</div>
+                <div className="insight-body">El diferencial entre el costo de su deuda y el retorno de inversión ({retornoInv}%) es de <strong>{(deltaFisher * 100).toFixed(2)}%</strong>. {deltaFisher > 0 ? "Prepagar destruye pasivos más caros que su inversión alternativa." : "La inversión alternativa rinde más que el costo de la deuda."}</div>
+              </div>
+              <div className="insight-box" data-n="03">
+                <div className="insight-title">Valor Presente Neto (VPN)</div>
+                <div className="insight-body">
+                  Descontando los flujos a su tasa de inversión, esta estrategia genera una creación de riqueza neta (VPN) de <strong>{fMon(ahorroVPN)}</strong> a dinero de hoy.
+                </div>
+              </div>
+            </div>
+
+            <div className="page-footer">
+              <div><strong>Simulador de Prepago Hipotecario</strong> · Documento confidencial</div>
+              <div>Los cálculos son referenciales bajo sistema de amortización francesa</div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════
+               PÁGINA 5 — ANÁLISIS DE ESCENARIOS
+          ═══════════════════════════════════════════════════════════════ */}
+          <div className="page inner-page">
+            <div className="page-header">
+              <div>
+                <div className="page-section-label">Análisis de Escenarios</div>
+                <div className="page-title">Impacto por Monto de Prepago</div>
+              </div>
+              <div className="page-number"><strong>05</strong>Escenarios</div>
+            </div>
+
+            <div className="callout">
+              Los siguientes escenarios asumen <strong>frecuencia {pr.frecuencia}</strong> de prepago, iniciando en el mes {pr.mesInicio}, con la estimada <strong>multa bancaria ya descontada</strong> del ahorro neto. Destino: <strong>{pr.destino === 'plazo' ? 'Reducir Plazo' : 'Reducir Cuota'}</strong>.
+            </div>
+
+            {/* Tabla de escenarios */}
+            <div className="section-title">Comparación de escenarios de prepago</div>
+            <table className="data-table" style={{ marginBottom: 10 }}>
+              <thead>
+                <tr>
+                  <th>Monto prepago {pr.frecuencia}</th>
+                  {pr.destino === 'plazo' ? (
+                    <>
+                      <th>Nueva duración</th>
+                      <th>Meses ahorrados</th>
+                    </>
+                  ) : (
+                    <>
+                      <th>Nueva Cuota</th>
+                      <th>Ahorro Mensual</th>
+                    </>
+                  )}
+                  <th>Ahorro intereses</th>
+                  <th>Ahorro neto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {nivelesPrepago.map(monto => {
+                  const s = runSim(monto);
+                  const isCurrent = monto === +pr.monto;
+                  return (
+                    <tr key={monto} className={isCurrent ? "highlight-row" : ""}>
+                      <td>UF {monto} {isCurrent && "★ Estrategia Base"}</td>
+
+                      {pr.destino === 'plazo' ? (
+                        <>
+                          <td>{fmtM(s.mesesReales)}</td>
+                          <td className="tag-blue">{s.mesesAhorrados}m</td>
+                        </>
+                      ) : (
+                        <>
+                          <td>{fMon(s.nuevaCuota)}</td>
+                          <td className="tag-blue">{fMon(cuotaBase - s.nuevaCuota)}</td>
+                        </>
+                      )}
+
+                      <td>{fMon(s.ahorroIntereses)}</td>
+                      <td className={s.ahorroNeto > 0 ? "tag-green" : "tag-red"}>{fMon(s.ahorroNeto)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+
+            {/* Barras de ahorro neto */}
+            <div className="section-title">Ahorro neto por escenario (UF)</div>
+            <div style={{ marginBottom: 10 }}>
+              {nivelesPrepago.map(monto => {
+                const s = runSim(monto);
+                const pct = maxAhorro > 0 ? Math.max(0, (s.ahorroNeto / maxAhorro) * 100) : 0;
+                const isCurrent = monto === +pr.monto;
+                return (
+                  <div className="bar-row" key={monto}>
+                    <div className="bar-label">UF {monto} {isCurrent && "★"}</div>
+                    <div className="bar-track">
+                      <div className="bar-fill" style={{ width: `${pct}%`, background: isCurrent ? 'var(--pdf-green)' : 'var(--pdf-blue2)' }}></div>
+                    </div>
+                    <div className="bar-val" style={{ color: isCurrent ? 'var(--pdf-green)' : 'var(--pdf-navy)' }}>{fMon(s.ahorroNeto)}</div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="page-footer">
+              <div><strong>Simulador de Prepago Hipotecario</strong> · Documento confidencial</div>
+              <div>Frecuencia {pr.frecuencia} · Multas descontadas en todos los escenarios</div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════
+               PÁGINA 6 — EVOLUCIÓN DEL SALDO (SVG Dinámico)
+          ═══════════════════════════════════════════════════════════════ */}
+          <div className="page inner-page">
+            <div className="page-header">
+              <div>
+                <div className="page-section-label">Proyección Financiera</div>
+                <div className="page-title">Evolución del Saldo Deudor</div>
+              </div>
+              <div className="page-number"><strong>06</strong>Proyección</div>
+            </div>
+
+            <div className="section-title">Saldo pendiente (UF) · Con vs. Sin prepago</div>
+            <div className="chart-wrap" style={{ marginBottom: 12 }}>
+              <svg viewBox="0 0 650 280" width="630" height="271" style={{ display: 'block', margin: '0 auto' }}>
+                <defs>
+                  <linearGradient id="gSin" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#dc2626" stopOpacity="0.18" />
+                    <stop offset="100%" stopColor="#dc2626" stopOpacity="0.01" />
+                  </linearGradient>
+                  <linearGradient id="gCon" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#059669" stopOpacity="0.22" />
+                    <stop offset="100%" stopColor="#059669" stopOpacity="0.01" />
+                  </linearGradient>
+                </defs>
+
+                {/* Grid horizontal */}
+                <line x1="60" x2="630" y1="30" y2="30" stroke="#e2e8f0" strokeWidth="1" />
+                <line x1="60" x2="630" y1={mapY(maxSaldo * 0.75)} y2={mapY(maxSaldo * 0.75)} stroke="#e2e8f0" strokeWidth="1" />
+                <line x1="60" x2="630" y1={mapY(maxSaldo * 0.5)} y2={mapY(maxSaldo * 0.5)} stroke="#e2e8f0" strokeWidth="1" />
+                <line x1="60" x2="630" y1={mapY(maxSaldo * 0.25)} y2={mapY(maxSaldo * 0.25)} stroke="#e2e8f0" strokeWidth="1" />
+                <line x1="60" x2="630" y1="245" y2="245" stroke="#e2e8f0" strokeWidth="1" />
+
+                {/* Etiquetas Y */}
+                <text x="52" y="34" textAnchor="end" fontSize="10" fill="#94a3b8">{fNum(maxSaldo)}</text>
+                <text x="52" y={mapY(maxSaldo * 0.75) + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{fNum(maxSaldo * 0.75)}</text>
+                <text x="52" y={mapY(maxSaldo * 0.5) + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{fNum(maxSaldo * 0.5)}</text>
+                <text x="52" y={mapY(maxSaldo * 0.25) + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{fNum(maxSaldo * 0.25)}</text>
+                <text x="52" y="249" textAnchor="end" fontSize="10" fill="#94a3b8">0</text>
+
+                <text x="12" y="145" textAnchor="middle" fontSize="10" fill="#64748b" transform="rotate(-90,12,145)">Saldo (UF)</text>
+
+                {/* Etiquetas X */}
+                <text x="60" y="262" textAnchor="middle" fontSize="10" fill="#94a3b8">Hoy</text>
+                <text x={mapX(maxMes * 0.25)} y="262" textAnchor="middle" fontSize="10" fill="#94a3b8">{Math.ceil(maxMes * 0.25 / 12)} Años</text>
+                <text x={mapX(maxMes * 0.5)} y="262" textAnchor="middle" fontSize="10" fill="#94a3b8">{Math.ceil(maxMes * 0.5 / 12)} Años</text>
+                <text x={mapX(maxMes * 0.75)} y="262" textAnchor="middle" fontSize="10" fill="#94a3b8">{Math.ceil(maxMes * 0.75 / 12)} Años</text>
+                <text x="630" y="262" textAnchor="middle" fontSize="10" fill="#94a3b8">{Math.ceil(maxMes / 12)} Años</text>
+
+                <text x="345" y="278" textAnchor="middle" fontSize="10" fill="#64748b">Tiempo Transcurrido</text>
+
+                {/* ÁREA Y LÍNEA SIN PREPAGO */}
+                <path d={areaSin} fill="url(#gSin)" />
+                <path d={pathSin} fill="none" stroke="#dc2626" strokeWidth="2" strokeDasharray="6,3" opacity="0.8" />
+
+                {/* ÁREA Y LÍNEA CON PREPAGO */}
+                <path d={areaCon} fill="url(#gCon)" />
+                <path d={pathCon} fill="none" stroke="#059669" strokeWidth="2.5" />
+
+                {/* Punto fin con prepago */}
+                <circle cx={mapX(lastMesCon)} cy="245" r="4" fill="#059669" />
+                <line x1={mapX(lastMesCon)} x2={mapX(lastMesCon)} y1={mapY(maxSaldo)} y2="245" stroke="#059669" strokeWidth="1" strokeDasharray="3,2" />
+
+                {/* Leyenda */}
+                <rect x="64" y="12" width="14" height="3" fill="#059669" rx="2" />
+                <text x="82" y="16" fontSize="10" fill="#059669" fontWeight="700">Con prepago {pr.frecuencia}</text>
+                <line x1="210" y1="13" x2="224" y2="13" stroke="#dc2626" strokeWidth="2" strokeDasharray="5,3" />
+                <circle cx="217" cy="13" r="0" />
+                <text x="228" y="17" fontSize="10" fill="#dc2626">Sin prepago</text>
+
+                {ahorroNeto > 0 && (
+                  <text x="490" y="50" fontSize="11" fill="#0a1628" fontWeight="700">Zona de ahorro</text>
+                )}
+              </svg>
+            </div>
+
+            {/* Tabla resumen anual simplificada para el reporte */}
+            <div className="section-title">Evolución anual resumida (UF)</div>
+            <table className="data-table" style={{ marginBottom: 8 }}>
+              <thead>
+                <tr>
+                  <th>Hito</th>
+                  <th>Saldo original</th>
+                  <th>Saldo con estrategia</th>
+                  <th>Diferencia / Ahorro acumulado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Hoy</td>
+                  <td>{fMon(saldoActual)}</td>
+                  <td>{fMon(saldoActual)}</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td>Mitad del plazo ({Math.ceil(maxMes / 24)} años)</td>
+                  <td>{fMon(sim.evolucionSin[Math.floor(maxMes / 2)]?.saldo || 0)}</td>
+                  <td>{fMon(sim.evolucionCon[Math.min(Math.floor(maxMes / 2), lastMesCon - 1)]?.saldo || 0)}</td>
+                  <td className="tag-green">Se acelera curva de rebaja</td>
+                </tr>
+                <tr className="highlight-row">
+                  <td>Año {Math.ceil(lastMesCon / 12)} (Fin Crédito)</td>
+                  <td>{fMon(sim.evolucionSin[lastMesCon - 1]?.saldo || 0)}</td>
+                  <td>UF 0.0</td>
+                  <td className="tag-green">Crédito liquidado</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div className="page-footer">
+              <div><strong>Simulador de Prepago Hipotecario</strong> · Documento confidencial</div>
+              <div>Trayectoria modelada con datos matemáticos exactos</div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════
+               PÁGINA 7 — ANÁLISIS DE SENSIBILIDAD
+          ═══════════════════════════════════════════════════════════════ */}
+          <div className="page inner-page">
+            <div className="page-header">
+              <div>
+                <div className="page-section-label">Análisis de Riesgos</div>
+                <div className="page-title">Sensibilidad y Escenarios Extremos</div>
+              </div>
+              <div className="page-number"><strong>07</strong>Sensibilidad</div>
+            </div>
+
+            <div className="callout" style={{ background: 'rgba(59, 130, 246, 0.08)', borderLeft: '4px solid #3b82f6', color: '#0f172a' }}>
+              Análisis de cómo cambios en variables macroeconómicas afectan la conveniencia del prepago. Todos los escenarios mantienen fijos: monto prepago, frecuencia, multa y destino.
+            </div>
+
+            {/* Sensibilidad a Inflación */}
+            <div className="section-title">Escenario 1: Variación de la Inflación Proyectada</div>
+            <div style={{ fontSize: 11, color: '#0f172a', marginBottom: 16, lineHeight: 1.6 }}>
+              La inflación es crítica en el análisis Fisher. Una inflación mayor erosiona el valor real del dinero que podrías dedicar al prepago.
+            </div>
+            <table className="data-table" style={{ marginBottom: 16 }}>
+              <thead>
+                <tr>
+                  <th>Escenario Inflacionario</th>
+                  <th>Costo Real de la Deuda</th>
+                  <th>Retorno Real Inversión</th>
+                  <th>Diferencial</th>
+                  <th>Recomendación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[{ inf: inflacion - 2, label: 'Inflación baja (-2pp)' }, { inf: +inflacion, label: 'Escenario base' }, { inf: +inflacion + 2, label: 'Inflación alta (+2pp)' }].map(s => {
+                  const inf = s.inf / 100;
+                  const costReal = ((1 + ((+cr.tna) / 100)) * (1 + inf)) - 1;
+                  const retReal = ((1 + (retornoInv / 100)) / (1 + inf)) - 1;
+                  const delta = costReal - retReal;
+                  return (
+                    <tr key={s.label}>
+                      <td><strong>{s.label}</strong></td>
+                      <td>{(costReal * 100).toFixed(2)}%</td>
+                      <td>{(retReal * 100).toFixed(2)}%</td>
+                      <td style={{ color: delta > 0 ? '#10b981' : '#f43f5e', fontWeight: 700 }}>{(delta * 100).toFixed(2)}%</td>
+                      <td style={{ fontSize: 10 }}>{delta > 0 ? '✓ Prepagar' : '✗ Invertir'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Sensibilidad a Retorno de Inversión */}
+            <div className="section-title">Escenario 2: Variación del Retorno de Inversión</div>
+            <div style={{ fontSize: 11, color: '#0f172a', marginBottom: 16, lineHeight: 1.6 }}>
+              Mayor rentabilidad en inversiones alternativas hace más atractivo no prepagar. Este análisis muestra el rango de sensibilidad.
+            </div>
+            <table className="data-table" style={{ marginBottom: 16 }}>
+              <thead>
+                <tr>
+                  <th>Retorno Inversión (CLP)</th>
+                  <th>Costo Real Deuda</th>
+                  <th>Retorno Real</th>
+                  <th>Diferencial</th>
+                  <th>Recomendación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[{ ret: retornoInv - 2, label: 'Retorno bajo (-2pp)' }, { ret: +retornoInv, label: 'Escenario base' }, { ret: +retornoInv + 2, label: 'Retorno alto (+2pp)' }].map(s => {
+                  const retDec = s.ret / 100;
+                  const infDec = inflacion / 100;
+                  const costReal = ((1 + ((+cr.tna) / 100)) * (1 + infDec)) - 1;
+                  const retReal = ((1 + retDec) / (1 + infDec)) - 1;
+                  const delta = costReal - retReal;
+                  return (
+                    <tr key={s.label}>
+                      <td><strong>{s.label}</strong></td>
+                      <td>{(costReal * 100).toFixed(2)}%</td>
+                      <td>{(retReal * 100).toFixed(2)}%</td>
+                      <td style={{ color: delta > 0 ? '#10b981' : '#f43f5e', fontWeight: 700 }}>{(delta * 100).toFixed(2)}%</td>
+                      <td style={{ fontSize: 10 }}>{delta > 0 ? '✓ Prepagar' : '✗ Invertir'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Matriz de Sensibilidad */}
+            <div className="section-title">Matriz de Decisión: Inflación vs Retorno Inversión</div>
+            <div style={{ fontSize: 11, color: '#0f172a', marginBottom: 12, lineHeight: 1.6 }}>
+              La matriz muestra para cada combinación de inflación y retorno, si la estrategia recomendada es prepagar (🟢) o invertir (🔴).
+            </div>
+            <table className="data-table" style={{ fontSize: 10 }}>
+              <thead>
+                <tr>
+                  <th>Inflación / Retorno</th>
+                  <th>{(+retornoInv - 2)}%</th>
+                  <th>{(+retornoInv)}%</th>
+                  <th>{(+retornoInv + 2)}%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[{ inf: +inflacion - 2 }, { inf: +inflacion }, { inf: +inflacion + 2 }].map(infRow => (
+                  <tr key={infRow.inf}>
+                    <td><strong>{infRow.inf}%</strong></td>
+                    {[{ ret: +retornoInv - 2 }, { ret: +retornoInv }, { ret: +retornoInv + 2 }].map(retCol => {
+                      const infDec = infRow.inf / 100;
+                      const retDec = retCol.ret / 100;
+                      const costReal = ((1 + ((+cr.tna) / 100)) * (1 + infDec)) - 1;
+                      const retReal = ((1 + retDec) / (1 + infDec)) - 1;
+                      const delta = costReal - retReal;
+                      return (
+                        <td key={`${infRow.inf}-${retCol.ret}`} style={{ textAlign: 'center', background: delta > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', fontWeight: 700, color: delta > 0 ? '#10b981' : '#f43f5e' }}>
+                          {delta > 0 ? '📊 P' : '📈 I'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="page-footer">
+              <div><strong>Simulador de Prepago Hipotecario</strong> · Análisis de Sensibilidad</div>
+              <div>P = Prepagar es mejor | I = Invertir es mejor</div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════
+               PÁGINA 8 — RECOMENDACIÓN Y CIERRE
+          ═══════════════════════════════════════════════════════════════ */}
+          <div className="page inner-page">
+            <div className="page-header">
+              <div>
+                <div className="page-section-label">Recomendación Estratégica</div>
+                <div className="page-title">Plan de Acción y Conclusiones</div>
+              </div>
+              <div className="page-number"><strong>08</strong>Cierre</div>
+            </div>
+
+            {/* Recomendación principal */}
+            <div className="rec-header" style={{ marginBottom: 0 }}>
+              <div className="label">✦ Recomendación para su caso</div>
+              <div className="title">{ahorroNeto > 0 ? `Ejecutar prepago ${pr.frecuencia} de ${fMon(pr.monto)} a partir del mes ${pr.mesInicio}` : `Mantener crédito orgánico. No se recomienda prepagar.`}</div>
+            </div>
+            <div className="rec-body">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Fundamentos</div>
+                  <div style={{ fontSize: 12, color: "#0f172a", lineHeight: 1.7 }}>
+                    ① La TNA del {cr.tna}% actúa como <strong>retorno garantizado</strong> de cualquier prepago realizado.<br /><br />
+                    ② La multa estimada de {fMon(sim.totalMultas)} se recupera velozmente gracias a la evasión de intereses compuestos.<br /><br />
+                    ③ El ahorro neto de {fMon(ahorroNeto)} equivale a <strong>{(ahorroNeto / cuotaBase).toFixed(1)} meses de cuota base</strong> totalmente gratis.
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Pasos concretos</div>
+                  <div style={{ fontSize: 12, color: "#0f172a", lineHeight: 1.7 }}>
+                    ① <strong>Aviso:</strong> Notificar al banco con 10 días hábiles de anticipación.<br /><br />
+                    ② <strong>Confirmar multa por escrito</strong> y solicitar tabla recalculada.<br /><br />
+                    ③ <strong>Destino:</strong> {pr.destino === 'plazo' ? "Reducir plazo (recomendado para maximizar el ahorro total)." : "Reducir cuota (liberará flujo de caja mensual)."}<br /><br />
+                    ④ <strong>Revisar anualmente</strong> si el monto puede aumentarse.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Consideraciones importantes */}
+            <div className="section-title">Consideraciones importantes para proteger su inversión</div>
+            <div className="three-col" style={{ marginBottom: 14 }}>
+              <div className="insight-box" data-n="⚠ 01">
+                <div className="insight-title">Liquidez primero</div>
+                <div className="insight-body">Asegúrese de mantener un fondo de emergencia de al menos 6 meses de gastos antes de comprometer el excedente en prepagos.</div>
+              </div>
+              <div className="insight-box" data-n="⚠ 02">
+                <div className="insight-title">Factor Inflación</div>
+                <div className="insight-body">Mientras la UF suba, el costo nominal de su deuda se agravará. Prepagar reduce su exposición a la inflación futura.</div>
+              </div>
+              <div className="insight-box" data-n="⚠ 03">
+                <div className="insight-title">Notificación legal</div>
+                <div className="insight-body">La ley exige notificar al banco con al menos 10 días hábiles de anticipación. El incumplimiento puede invalidar el prepago o sumar recargos.</div>
+              </div>
+            </div>
+
+            <div className="disclaimer">
+              <strong>Aviso Legal:</strong> Este informe fue generado automáticamente por el Simulador de Prepago Hipotecario con fines referenciales. Los cálculos se basan en amortización francesa asumiendo condiciones constantes. No constituye asesoría financiera ni legal. Verifique con su banco las condiciones exactas antes de operar.
+            </div>
+
+            <div className="page-footer">
+              <div><strong>Simulador de Prepago Hipotecario</strong> · Documento confidencial</div>
+              <div>Generado en entorno local · {new Date().getFullYear()}</div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════
+               PÁGINA 9 — DISCLAIMER Y CONSIDERACIONES LEGALES
+          ═══════════════════════════════════════════════════════════════ */}
+          <div className="page inner-page">
+            <div className="page-header">
+              <div>
+                <div className="page-section-label">Referencias Legales</div>
+                <div className="page-title">Disclaimers y Limitaciones</div>
+              </div>
+              <div className="page-number"><strong>09</strong>Disclaimer</div>
+            </div>
+
+            <div style={{ background: 'rgba(244, 63, 94, 0.08)', padding: 14, borderLeft: '4px solid #f43f5e', borderRadius: 4, marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#7f1d1d', marginBottom: 6 }}>⚠️ ADVERTENCIA IMPORTANTE</div>
+              <div style={{ fontSize: 10, color: '#0f172a', lineHeight: 1.6 }}>
+                Este documento es un <strong>análisis refrencial</strong> generado automáticamente por un simulador local. No constituye asesoría financiera, legal, ni de inversión de ningún tipo. Los cálculos están basados en supuestos simplificados y datos ingresados por el usuario. Verifique con su banco los términos exactos antes de cualquier operación.
+              </div>
+            </div>
+
+            <div className="section-title">Limitaciones y supuestos</div>
+            <ul style={{ fontSize: 11, color: '#0f172a', lineHeight: 1.8, marginBottom: 16 }}>
+              <li><strong>Sistema de amortización:</strong> Asume amortización francesa con compounding mensual. Otros sistemas pueden producir resultados distintos.</li>
+              <li><strong>Tasa fija:</strong> El análisis asume que la TNA del crédito no varía. Créditos con tasas variables requieren recálculo.</li>
+              <li><strong>Multa por prepago:</strong> Las multas están estimadas según el parámetro ingresado. Algunos bancos tienen cláusulas especiales.</li>
+              <li><strong>Inflación y retorno:</strong> Las proyecciones de inflación y retorno de inversión son supuestos del usuario. El resultado real dependerá de variables macroeconómicas ajenas a este modelo.</li>
+              <li><strong>Impuestos:</strong> El análisis no incluye el impacto de impuestos (SII, IRR, otros). Consulte a un asesor tributario para el escenario completo.</li>
+              <li><strong>Cambios legales:</strong> La normativa sobre prepagos hipotecarios puede variar. Verifique la legislación vigente en su jurisdicción.</li>
+            </ul>
+
+            <div className="section-title">Requisitos legales para prepago en Chile</div>
+            <div style={{ fontSize: 11, color: '#0f172a', lineHeight: 1.8, marginBottom: 12 }}>
+              <p><strong>Notificación anticipada:</strong> La ley exige notificar al banco con un mínimo de 10 días hábiles de anticipación.</p>
+              <p><strong>Derechos del deudor:</strong> El Banco no puede cobrar comisión por prepago, pero sí puede cobrar multa si está estipulada en el contrato (hasta 3 meses de intereses en la mayoría de casos).</p>
+              <p><strong>Transparencia bancaria:</strong> El banco debe entregar una tabla recalculada con las nuevas cuotas/plazos dentro de 5 días hábiles.</p>
+              <p><strong>Destino del pago:</strong> El cliente especifica si el prepago reduce plazo o cuota. El banco debe respetar esta decisión.</p>
+            </div>
+
+            <div className="section-title">Responsabilidades del usuario</div>
+            <div style={{ fontSize: 11, color: '#0f172a', lineHeight: 1.6, marginBottom: 10 }}>
+              El usuario acepta que:
+            </div>
+            <ul style={{ fontSize: 11, color: '#0f172a', lineHeight: 1.8, marginBottom: 12 }}>
+              <li>Ha revisado personal e independientemente este análisis.</li>
+              <li>Los datos ingresados son exactos y están actualizados.</li>
+              <li>Cualquier decisión financiera es de su exclusiva responsabilidad.</li>
+              <li>Consultará con asesores especializados (abogado, contador, asesor financiero) antes de operar.</li>
+              <li>No reclama al generador de este simulador por pérdidas derivadas del uso de este análisis.</li>
+            </ul>
+
+            <div style={{ background: 'rgba(99, 102, 241, 0.08)', padding: 12, borderRadius: 4, fontSize: 10, color: '#0f172a', lineHeight: 1.6 }}>
+              <strong>Contacto y soporte:</strong> Este simulador es una herramienta educativa y de referencia. Para dudas técnicas con su crédito hipotecario, contacte a su ejecutivo bancario. Para análisis más profundos, consulte a profesionales certificados en finanzas personal.
+            </div>
+
+            <div className="page-footer">
+              <div><strong>Simulador de Prepago Hipotecario</strong> · Versión de Referencia</div>
+              <div>Generado: {new Date().toLocaleDateString('es-CL')} | Documento confidencial - Solo para el usuario</div>
+            </div>
+          </div>
+
+        </div>
+      );
+    });
+
+    // ── APP PRINCIPAL ────────────────────────────────────────────────────────────
+    function App() {
+      const { tasaMensual, cuotaMensual, calcularSaldoActual, calcularInteresesTotales, simularPrepago, calcularHistorial } = window.FinancialLogic;
+      const initialCr = { capital: 2000, tna: 4.5, plazo: 300, mesesPagados: 36, costoPrepago: "1.5", seguros: 0.5 };
+      const [cr, setCr] = useState(initialCr);
+      const [pr, setPr] = useState({ monto: 100, frecuencia: "anual", mesInicio: 37, destino: "plazo" });
+      const [tab, setTab] = useState("datos");
+      const [monedaTabla, setMonedaTabla] = useState("UF");
+      const [valorUF, setValorUF] = useState(null);
+      const [showPrintView, setShowPrintView] = useState(false);
+
+      useEffect(() => {
+        if (showPrintView) {
+          setTimeout(() => window.print(), 100);
+        }
+      }, [showPrintView]);
+
+      useEffect(() => {
+        const getUF = async () => {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+            const res = await fetch("https://mindicador.cl/api/uf", { signal: controller.signal });
+            clearTimeout(timeoutId);
+
+            if (!res.ok) throw new Error("Server response not OK");
+            const data = await res.json();
+            if (data?.serie?.[0]?.valor) {
+              setValorUF(data.serie[0].valor);
+              return;
+            }
+          } catch (err) {
+            console.error("Error fetching UF from mindicador.cl:", err);
+          }
+          // Fallback UF value if API fails (March 2026 reference)
+          setValorUF(39841.72);
+        };
+        getUF();
+      }, []);
+
+      const setC = k => v => setCr(p => ({ ...p, [k]: v }));
+      const setP = k => v => setPr(p => ({ ...p, [k]: v }));
+
+      const mesesRestantes = Math.max(+cr.plazo - +cr.mesesPagados, 1);
+      const saldoActual = calcularSaldoActual(+cr.capital, +cr.tna, +cr.plazo, +cr.mesesPagados);
+      const cuotaBase = cuotaMensual(saldoActual, +cr.tna, mesesRestantes);
+      const interesesBase = calcularInteresesTotales(saldoActual, +cr.tna, mesesRestantes);
+
+      // Año y mes de inicio del crédito (fecha actual retrocediendo mesesPagados)
+      const creditStart = React.useMemo(() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - +cr.mesesPagados);
+        return { year: d.getFullYear(), month: d.getMonth() + 1 };
+      }, [cr.mesesPagados]);
+
+      // Historial ya pagado (desde mes 1 hasta mesesPagados)
+      const historialPagado = useMemo(() =>
+        calcularHistorial(+cr.capital, +cr.tna, +cr.plazo, +cr.mesesPagados, +cr.seguros),
+        [cr.capital, cr.tna, cr.plazo, cr.mesesPagados, cr.seguros]
+      );
+
+      const simPlazo = useMemo(() =>
+        simularPrepago(saldoActual, +cr.tna, mesesRestantes, +pr.monto, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, "plazo", cuotaBase, +cr.costoPrepago, +cr.seguros),
+        [saldoActual, cr.tna, mesesRestantes, pr.monto, pr.frecuencia, pr.mesInicio, cr.mesesPagados, cuotaBase, cr.costoPrepago, cr.seguros]
+      );
+
+      const simCuota = useMemo(() =>
+        simularPrepago(saldoActual, +cr.tna, mesesRestantes, +pr.monto, pr.frecuencia, +pr.mesInicio - +cr.mesesPagados, "cuota", cuotaBase, +cr.costoPrepago, +cr.seguros),
+        [saldoActual, cr.tna, mesesRestantes, pr.monto, pr.frecuencia, pr.mesInicio, cr.mesesPagados, cuotaBase, cr.costoPrepago, cr.seguros]
+      );
+
+      const sim = useMemo(() => pr.destino === "plazo" ? simPlazo : simCuota, [pr.destino, simPlazo, simCuota]);
+
+      const mesesAhorrados = mesesRestantes - sim.mesesReales;
+      const ahorroIntereses = interesesBase - sim.totalIntereses;
+      const ahorroSeguros = Math.max(mesesAhorrados * (+cr.seguros), 0); // Ahorro por no pagar seguros en meses liberados
+      const ahorroNeto = ahorroIntereses + ahorroSeguros - sim.totalMultas;
+      const conviene = ahorroNeto > 0;
+
+      const dividendoTotal = cuotaBase + (+cr.seguros);
+      const cae = +cr.seguros;
+
+      const [inflacion, setInflacion] = useState(4.0);
+      const [retornoInv, setRetornoInv] = useState(8.0);
+
+      const tabs = [
+        { id: "datos", label: "Datos de Entrada", icon: "⚙️" },
+        { id: "resumen", label: "Dashboard Resumen", icon: "📊" },
+        { id: "grafico", label: "Gráfico Comparativo", icon: "📈" },
+        { id: "amortizacion", label: "Detalle Mensual", icon: "📋" },
+        { id: "escenario1", label: "Arbitraje de Tasas", icon: "⚡" },
+        { id: "escenario2", label: "Valoración & Riesgo", icon: "🎯" },
+        { id: "comparacion", label: "Evolución de Cuota", icon: "💰" }
+      ];
+
+      if (showPrintView) {
+        return (
+          <div>
+            <button className="no-print" onClick={() => setShowPrintView(false)} style={{ margin: 12, padding: 8 }}>&larr; Volver</button>
+            <div className="pdf-report-container">
+              <ReportePDF
+                cr={cr}
+                pr={pr}
+                sim={sim}
+                saldoActual={saldoActual}
+                mesesRestantes={mesesRestantes}
+                cuotaBase={cuotaBase}
+                interesesBase={interesesBase}
+                ahorroNeto={ahorroNeto}
+                mesesAhorrados={mesesAhorrados}
+                inflacion={inflacion}
+                retornoInv={retornoInv}
+                simularPrepago={simularPrepago}
+                valorUF={valorUF}
+              />
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <>
+          <div className="app-container">
+            <div className="sidebar">
+              <div className="sidebar-header">
+                <h1 className="sidebar-title text-gradient">SIMULADOR HIPOTECARIO</h1>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, fontWeight: 500, marginBottom: 16 }}>
+                  Análisis de Prepago Inteligente
+                </div>
+              </div>
+
+              <div className="sidebar-inputs" style={{ display: "none" }}>
+              </div>
+
+              <div className="sidebar-nav">
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, paddingLeft: 12 }}>
+                  Vistas de Análisis
+                </div>
+                {tabs.map((t) => (
+                  <button key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className={`sidebar-tab ${tab === t.id ? 'active' : ''}`}
+                  >
+                    <span className="sidebar-tab-icon">{t.icon}</span>
+                    <span style={{ flex: 1 }}>{t.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="sidebar-footer">
+                <button
+                  onClick={() => setShowPrintView(true)}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    borderRadius: "10px",
+                    background: "rgba(99, 102, 241, 0.1)",
+                    color: "var(--accent-indigo)",
+                    border: "1px solid rgba(99, 102, 241, 0.2)",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = "var(--accent-indigo)";
+                    e.currentTarget.style.color = "#fff";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = "rgba(99, 102, 241, 0.1)";
+                    e.currentTarget.style.color = "var(--accent-indigo)";
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>📄</span> Exportar Reporte
+                </button>
+              </div>
+            </div>
+
+            {/* ── ÁREA PRINCIPAL (DERECHA) ── */}
+            <div className="main-area">
+              <div className="main-content-scroll">
+
+                {/* Banner Alerta movido dentro de la pestaña Resumen */}
+
+                {/* Visores Dinámicos */}
+                <div className="glass-card" style={{ height: "auto", minHeight: "500px", maxHeight: "800px", display: "flex", flexDirection: "column", padding: 0 }}>
+                  <div style={{ padding: "8px 12px", overflowY: "auto" }}>
+                    {tab === "datos" && (
+                      <div className="animate-fade grid-2" style={{ gap: 16 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                          <div className="glass-card" style={{ padding: 16, height: "100%", display: "flex", flexDirection: "column" }}>
+                            <div className="section-title">
+                              <span style={{ fontSize: 18 }}>🏦</span> Datos del Crédito
+                            </div>
+                            <div className="grid-2" style={{ flex: 1, alignContent: "start", rowGap: 16 }}>
+                              <Input label="Monto original" value={cr.capital} onChange={setC("capital")} prefix="UF" min={1} />
+                              <Input label="Tasa (TNA)" value={cr.tna} onChange={setC("tna")} suffix="%" step={0.1} />
+                              <Input label="Plazo total" value={cr.plazo} onChange={setC("plazo")} suffix="meses" />
+                              <Input label="Meses pagados" value={cr.mesesPagados} onChange={setC("mesesPagados")} suffix="meses" />
+                              <Input label="Coste de Seguros" value={cr.seguros} onChange={setC("seguros")} suffix="UF" step={0.01} />
+                              <div style={{ gridColumn: "1/-1" }}>
+                                <Select label="Costo Prepago" value={cr.costoPrepago} onChange={setC("costoPrepago")}
+                                  options={costosPrepagoOpciones} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+                          <div className="glass-card" style={{ height: "fit-content", borderColor: "rgba(245, 158, 11, 0.2)", padding: 16 }}>
+                            <div className="section-title" style={{ color: "var(--accent-amber)" }}>
+                              <span style={{ fontSize: 18 }}>💸</span> Tu Estrategia
+                            </div>
+                            <div className="grid-2">
+                              <Input label="Monto Prepago" value={pr.monto} onChange={setP("monto")} prefix="UF" />
+                              <Select label="Frecuencia" value={pr.frecuencia} onChange={setP("frecuencia")}
+                                options={[{ value: "semestral", label: "Semestral" }, { value: "anual", label: "Anual" }]} />
+                              <Input label="Inicia en mes" value={pr.mesInicio} onChange={setP("mesInicio")} suffix="meses" />
+                              <div style={{ gridColumn: "1/-1" }}>
+                                <Select label="Destino" value={pr.destino} onChange={setP("destino")}
+                                  options={[{ value: "plazo", label: "Bajar Plazo" }, { value: "cuota", label: "Bajar Cuota" }]} />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="glass-card" style={{ borderColor: "rgba(168, 85, 247, 0.2)", padding: 16 }}>
+                            <div className="section-title" style={{ color: "var(--accent-indigo)" }}>
+                              <span style={{ fontSize: 18 }}>⚙️</span> Macroeconómicos
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                              <Input label="Inflación Proyectada (π)" value={inflacion} onChange={v => setInflacion(v)} suffix="%" step={0.1} />
+                              <Input label="Retorno Inversión (ρ)" value={retornoInv} onChange={v => setRetornoInv(v)} suffix="%" step={0.1} />
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 12, lineHeight: 1.4 }}>
+                              *Variables usadas estocásticamente en los modelos de Arbitraje y VPN.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {tab === "resumen" && (
+                      <div className="animate-fade" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {/* Banner Alerta (Ahora dentro de Resumen) */}
+                        {+pr.monto > 0 && (
+                          <div className={`alert-box ${conviene ? 'alert-success' : 'alert-warning'}`} style={{ flexShrink: 0, marginBottom: 16 }}>
+                            <div className="alert-icon">{conviene ? "🚀" : "⚠️"}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: 1 }}>
+                              <div className="alert-title" style={{ marginBottom: 0 }}>
+                                {conviene ? "Estrategia Rentable" : "El costo de prepago supera el ahorro"}
+                              </div>
+                              <div className="alert-desc">
+                                {conviene
+                                  ? `Estás ahorrando UF ${fmt(ahorroNeto)} netos (descontado el costo de prepago de UF ${fmt(sim.totalMultas)}).`
+                                  : `Tu ahorro en interés no alcanza a cubrir el costo de prepago de UF ${fmt(sim.totalMultas)}.`}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <h3 style={{ fontSize: 16, marginBottom: 16, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-indigo)" }}></div>
+                            Si no prepagas (Tu estado actual)
+                          </h3>
+                          <div className="grid-3">
+                            <Stat label="Saldo Actual" value={`UF ${fmt(saldoActual)}`} colorClass="indigo" />
+                            <Stat label="Saldo Actual CLP" value={valorUF ? fmtCLP(saldoActual * valorUF) : "Cargando..."} sub={valorUF ? `UF 1 = ${fmtCLP(valorUF)}` : ""} colorClass="indigo" />
+                            <Stat label="Intereses Restantes" value={`UF ${fmt(interesesBase)}`} colorClass="indigo" />
+                            <Stat label="Dividendo Total" value={`UF ${fmt(dividendoTotal)}`} sub="Incluye seguros" colorClass="indigo" />
+                            <Stat label="Dividendo Total CLP" value={valorUF ? fmtCLP(dividendoTotal * valorUF) : "Cargando..."} sub={valorUF ? `UF 1 = ${fmtCLP(valorUF)}` : ""} colorClass="indigo" />
+                            <Stat label="Tiempo Restante" value={fmtM(mesesRestantes)} sub={`(${mesesRestantes} meses)`} colorClass="indigo" />
+                          </div>
+                        </div>
+
+                        <div style={{ height: 1, background: "var(--card-border)", width: "100%" }}></div>
+
+                        {+pr.monto > 0 && (
+                          <div>
+                            <h3 style={{ fontSize: 16, marginBottom: 16, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-emerald)" }}></div>
+                              Aplicando tu estrategia
+                            </h3>
+                            <div className="grid-3">
+                              <Stat label="Ahorro NETO Total" value={`UF ${fmt(ahorroNeto)}`} sub="Descontando multas" colorClass={ahorroNeto > 0 ? "emerald" : "rose"} big />
+                              {pr.destino === "plazo" ? (
+                                <React.Fragment>
+                                  <Stat label="Nuevo Plazo" value={fmtM(sim.mesesReales)} sub={`Original: ${fmtM(mesesRestantes)}`} colorClass="cyan" big />
+                                  <Stat label="Tiempo Ahorrado" value={fmtM(mesesAhorrados)} colorClass="emerald" big />
+                                </React.Fragment>
+                              ) : (
+                                <Stat label="Nuevo Dividendo" value={`UF ${fmt(sim.nuevaCuota + (+cr.seguros))}`} sub={`Te ahorras UF ${fmt(cuotaBase - sim.nuevaCuota)} / mes`} colorClass="cyan" big />
+                              )}
+                              <Stat label="Interés Ahorrado" value={`UF ${fmt(ahorroIntereses)}`} colorClass="emerald" />
+                              <Stat label="Total Prepagado" value={`UF ${fmt(sim.totalPrepagado)}`} sub={`En ${sim.prepagosRealizados} eventos`} colorClass="amber" />
+                            </div >
+                          </div >
+                        )}
+                      </div >
+                    )}
+
+                    {
+                      tab === "grafico" && (
+                        <div className="animate-fade" style={{ display: "flex", flexDirection: "column", height: "100%", gap: 20 }}>
+                          {+pr.monto > 0 && ahorroIntereses > 0 && (
+                            <div className="glass-card" style={{ padding: "16px 20px", borderLeft: "4px solid var(--accent-cyan)", borderRadius: "8px 16px 16px 8px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-cyan)" }}></div>
+                                <div style={{ color: "var(--accent-cyan)", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>Executive Summary</div>
+                              </div>
+                              <div style={{ fontSize: 14, color: "var(--text-main)", lineHeight: 1.6, fontFamily: "var(--font-body)", fontWeight: 400 }}>
+                                La estrategia de amortización propuesta acelera la reducción del saldo insoluto, mitigando la exposición a intereses prospectivos en un <strong style={{ color: "#fff", fontWeight: 700 }}>{((ahorroIntereses / interesesBase) * 100).toFixed(1)}%</strong>. Esto permite comparar el impacto diferencial entre reducir plazo y reducir cuota.
+                              </div>
+                            </div>
+                          )}
+                          <div className="glass-card" style={{ flex: 1, minHeight: "550px", display: "flex", flexDirection: "column" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                              <h3 style={{ fontSize: 15, color: "var(--text-main)", fontWeight: 700, letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 18 }}>📉</span> Proyección de Saldo Insoluto (UF)
+                              </h3>
+                            </div>
+                            <div style={{ position: "relative", flex: 1, minHeight: "450px" }}>
+                              <GraficoSaldo evolucionSin={sim.evolucionSin} evolucionPlazo={simPlazo.evolucionCon} evolucionCuota={simCuota.evolucionCon} mesesRestantes={mesesRestantes} saldoInicial={saldoActual} cr={cr} />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    {
+                      tab === "escenario1" && (
+                        <div className="animate-fade">
+                          <h3 style={{ fontSize: 16, marginBottom: 8, color: "#fff", fontWeight: 600 }}>Punto de Equilibrio & Arbitraje</h3>
+                          <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 16 }}>Análisis de tasas de interés, inflación y costo de capital.</p>
+                          <Escenario1 cr={cr} saldoActual={saldoActual} mesesRestantes={mesesRestantes} interesesBase={interesesBase} pr={pr} cuotaBase={cuotaBase} valorUF={valorUF} cae={cae} inflacion={inflacion} setInflacion={setInflacion} retornoInv={retornoInv} setRetornoInv={setRetornoInv} />
+                        </div>
+                      )
+                    }
+
+                    {
+                      tab === "escenario2" && (
+                        <div className="animate-fade">
+                          <h3 style={{ fontSize: 16, marginBottom: 8, color: "#fff", fontWeight: 600 }}>Valor Presente & Riesgo Estocástico</h3>
+                          <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 16 }}>Análisis de flujos descontados y simulación de volatilidad (Monte Carlo).</p>
+                          <Escenario2 cr={cr} saldoActual={saldoActual} mesesRestantes={mesesRestantes} interesesBase={interesesBase} pr={pr} cuotaBase={cuotaBase} valorUF={valorUF} cae={cae} inflacion={inflacion} setInflacion={setInflacion} retornoInv={retornoInv} setRetornoInv={setRetornoInv} />
+                        </div>
+                      )
+                    }
+
+                    {tab === "amortizacion" && (
+                      <div className="animate-fade">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                          <div>
+                            <h3 style={{ fontSize: 16, color: "#fff", fontWeight: 600 }}>Tabla de Amortización Detallada</h3>
+                            <p style={{ fontSize: 14, color: "var(--text-muted)" }}>Desglose mensual bajo la estrategia de {pr.destino === "plazo" ? "Reducción de Plazo" : "Reducción de Cuota"}.</p>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <div style={{ display: "flex", background: "rgba(0,0,0,0.3)", padding: 4, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)", height: "fit-content" }}>
+                              {["UF", "CLP"].map(m => (
+                                <button
+                                  key={m}
+                                  onClick={() => setMonedaTabla(m)}
+                                  style={{
+                                    padding: "6px 12px",
+                                    borderRadius: 6,
+                                    border: "none",
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    cursor: "pointer",
+                                    transition: "all 0.2s",
+                                    background: monedaTabla === m ? "var(--accent-indigo)" : "transparent",
+                                    color: monedaTabla === m ? "#fff" : "var(--text-muted)"
+                                  }}
+                                >
+                                  {m}
+                                </button>
+                              ))}
+                            </div>
+                            <div style={{ textAlign: "right", background: "rgba(59, 130, 246, 0.1)", padding: "12px 20px", borderRadius: 10, border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                                <div style={{ fontSize: 10, color: "var(--accent-cyan)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>Término Proyectado</div>
+                                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{new Date().getFullYear() + Math.floor((new Date().getMonth() + sim.mesesReales) / 12)}</div>
+                              </div>
+                            </div>
+                          </div>
+                          <TablaAmortizacion
+                            detalle={sim.detalleMensual}
+                            historial={historialPagado}
+                            mesesPagados={+cr.mesesPagados}
+                            startYear={creditStart.year}
+                            startMonth={creditStart.month}
+                            seguros={+cr.seguros}
+                            moneda={monedaTabla}
+                            valorUF={valorUF}
+                          />
+                        </div>
+                      )}
+
+                    {
+                      tab === "comparacion" && (
+                        <div className="animate-fade" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                          <h3 style={{ fontSize: 16, marginBottom: 8, color: "#fff", fontWeight: 600 }}>Evolución del Flujo de Caja</h3>
+                          <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 24 }}>Compara cómo la cuota mensual disminuye progresivamente en el tiempo según tu estrategia.</p>
+                          <div style={{ position: "relative", flex: 1, minHeight: 400 }}>
+                            <GraficoCuotas evolucionCuota={sim.evolucionCuota} cuotaBase={cuotaBase} destino={pr.destino} valorUF={valorUF} />
+                          </div>
+                        </div>
+                      )
+                    }
+                  </div >
+                </div >
+              </div >
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+
+  </script>
+</body>
+
+</html>
