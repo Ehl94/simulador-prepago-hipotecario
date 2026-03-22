@@ -24,6 +24,520 @@
   <script src="financial_logic.js"></script>
 
   <!-- (pdf libraries removed: using browser print instead) -->
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PDF REPORT STYLES — McKinsey Corporate Executive
+       ═══════════════════════════════════════════════════════════ -->
+  <style>
+    /* ── PDF Design Tokens ─────────────────────────────────────── */
+    :root {
+      --pdf-navy:    #002060;
+      --pdf-blue:    #1F4E79;
+      --pdf-blue2:   #1D4ED8;
+      --pdf-green:   #107C41;
+      --pdf-red:     #C00000;
+      --pdf-amber:   #D97706;
+      --pdf-text:    #0F172A;
+      --pdf-muted:   #475569;
+      --pdf-lighter: #94A3B8;
+      --pdf-border:  #CBD5E1;
+      --pdf-bg-light:#F8FAFC;
+      --pdf-bg-alt:  #F1F5F9;
+    }
+
+    /* ── Viewport wrapper (screen preview) ────────────────────── */
+    .pdf-report-container {
+      background: #D4D8E0;
+      padding: 32px;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 12px;
+      color: var(--pdf-text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Page base ─────────────────────────────────────────────── */
+    .page {
+      background: #FFFFFF;
+      width: 210mm;
+      min-height: 297mm;
+      max-width: 210mm;
+      margin: 0 auto 28px;
+      position: relative;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      page-break-after: always;
+      break-after: page;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       PORTADA
+       ═══════════════════════════════════════════════════════════ */
+    .cover-top-bar {
+      height: 10px;
+      background: var(--pdf-navy);
+      width: 100%;
+      flex-shrink: 0;
+    }
+    .cover-body {
+      flex: 1;
+      padding: 56px 56px 32px;
+      display: flex;
+      flex-direction: column;
+    }
+    .cover-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--pdf-lighter);
+      margin-bottom: 28px;
+    }
+    .cover-title {
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.05;
+      color: var(--pdf-navy);
+      letter-spacing: -0.025em;
+      margin-bottom: 20px;
+    }
+    .cover-title span { color: var(--pdf-blue2); }
+
+    .cover-subtitle {
+      font-size: 13px;
+      color: var(--pdf-muted);
+      line-height: 1.75;
+      max-width: 490px;
+      margin-bottom: 36px;
+      font-weight: 400;
+    }
+    .cover-divider {
+      height: 2px;
+      background: linear-gradient(90deg, var(--pdf-navy) 0%, var(--pdf-blue2) 40%, transparent 100%);
+      margin-bottom: 36px;
+    }
+    .cover-hero-stat {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .cover-stat-box {
+      flex: 1;
+      padding: 22px 20px;
+      border: 1px solid var(--pdf-border);
+      border-top: 4px solid var(--pdf-navy);
+      background: var(--pdf-bg-light);
+    }
+    .cover-stat-box.green { border-top-color: var(--pdf-green); }
+    .cover-stat-box label {
+      display: block;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pdf-lighter);
+      margin-bottom: 10px;
+    }
+    .cover-stat-box .val {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--pdf-navy);
+      line-height: 1;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    .cover-stat-box.green .val { color: var(--pdf-green); }
+    .cover-stat-box .sub {
+      font-size: 10px;
+      color: var(--pdf-lighter);
+    }
+    .cover-meta {
+      display: flex;
+      gap: 0;
+      border-top: 1px solid var(--pdf-border);
+      padding-top: 24px;
+      margin-top: auto;
+    }
+    .cover-meta-item {
+      flex: 1;
+      padding-right: 20px;
+      border-right: 1px solid var(--pdf-border);
+      margin-right: 20px;
+    }
+    .cover-meta-item:last-child { border-right: none; margin-right: 0; }
+    .cover-meta-item label {
+      display: block;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--pdf-lighter);
+      margin-bottom: 5px;
+    }
+    .cover-meta-item span {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--pdf-text);
+    }
+    .cover-footer {
+      background: var(--pdf-navy);
+      padding: 15px 56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .cover-footer-brand {
+      font-size: 11px;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .cover-footer-conf {
+      font-size: 10px;
+      color: rgba(255,255,255,0.45);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       INNER PAGES
+       ═══════════════════════════════════════════════════════════ */
+    .inner-page {
+      padding: 40px 48px 72px;
+    }
+
+    /* ── Page Header ─────────────────────────────────────────────  */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding-bottom: 14px;
+      border-bottom: 2.5px solid var(--pdf-navy);
+      margin-bottom: 22px;
+    }
+    .page-section-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--pdf-lighter);
+      margin-bottom: 4px;
+    }
+    .page-title {
+      font-size: 21px;
+      font-weight: 800;
+      color: var(--pdf-navy);
+      letter-spacing: -0.015em;
+    }
+    .page-number {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--pdf-lighter);
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+    .page-number strong {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--pdf-navy);
+      line-height: 1;
+    }
+
+    /* ── Section Title ───────────────────────────────────────────  */
+    .inner-page .section-title {
+      font-size: 9px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.18em !important;
+      text-transform: uppercase !important;
+      color: var(--pdf-blue) !important;
+      border-bottom: 1px solid var(--pdf-border) !important;
+      padding-bottom: 6px !important;
+      margin: 18px 0 12px !important;
+      background: none !important;
+      -webkit-text-fill-color: unset !important;
+      -webkit-background-clip: unset !important;
+      background-clip: unset !important;
+      display: block !important;
+    }
+
+    /* ── Page Footer ─────────────────────────────────────────────  */
+    .page-footer {
+      position: absolute;
+      bottom: 24px;
+      left: 48px;
+      right: 48px;
+      padding-top: 10px;
+      border-top: 1px solid var(--pdf-border);
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--pdf-lighter);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       KPI BOXES
+       ═══════════════════════════════════════════════════════════ */
+    .kpi-grid   { display: grid; gap: 8px; margin-bottom: 10px; }
+    .kpi-grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .kpi-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+    .kpi-box {
+      padding: 14px 16px;
+      background: var(--pdf-bg-light);
+      border: 1px solid var(--pdf-border);
+      border-top: 3px solid var(--pdf-border);
+    }
+    .kpi-box.navy  { border-top-color: var(--pdf-navy);  background: #EEF2F7; }
+    .kpi-box.red   { border-top-color: var(--pdf-red);   background: #FEF2F2; }
+    .kpi-box.green { border-top-color: var(--pdf-green); background: #F0FDF4; }
+
+    .kpi-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--pdf-muted);
+      margin-bottom: 6px;
+    }
+    .kpi-value {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--pdf-navy);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+    .kpi-box.navy  .kpi-value { color: var(--pdf-navy);  }
+    .kpi-box.red   .kpi-value { color: var(--pdf-red);   }
+    .kpi-box.green .kpi-value { color: var(--pdf-green); }
+    .kpi-sub { font-size: 9px; color: var(--pdf-lighter); }
+
+    /* ══════════════════════════════════════════════════════════════
+       CALLOUT BOXES
+       ═══════════════════════════════════════════════════════════ */
+    .callout {
+      background: #F0F4FF;
+      border-left: 4px solid var(--pdf-blue2);
+      padding: 13px 18px;
+      font-size: 11.5px;
+      line-height: 1.65;
+      color: var(--pdf-text);
+      margin-bottom: 16px;
+    }
+    .callout.green { background: #F0FDF4; border-left-color: var(--pdf-green); }
+    .callout.red   { background: #FEF2F2; border-left-color: var(--pdf-red);   }
+
+    /* ══════════════════════════════════════════════════════════════
+       INSIGHT BOXES (3-col)
+       ═══════════════════════════════════════════════════════════ */
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .insight-box {
+      background: var(--pdf-bg-light);
+      border: 1px solid var(--pdf-border);
+      border-top: 2px solid var(--pdf-blue2);
+      padding: 14px 14px 14px;
+      position: relative;
+      margin-top: 10px;
+    }
+    .insight-box::before {
+      content: attr(data-n);
+      position: absolute;
+      top: -11px;
+      left: 12px;
+      background: var(--pdf-blue2);
+      color: white;
+      font-size: 8px;
+      font-weight: 700;
+      padding: 2px 8px;
+      letter-spacing: 0.05em;
+    }
+    .insight-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--pdf-navy);
+      margin-bottom: 7px;
+      margin-top: 4px;
+    }
+    .insight-body {
+      font-size: 10.5px;
+      color: var(--pdf-muted);
+      line-height: 1.65;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       DATA TABLES — McKinsey Style
+       ═══════════════════════════════════════════════════════════ */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      font-family: 'Inter', sans-serif;
+    }
+    .data-table thead tr { background: var(--pdf-navy); }
+    .data-table thead th {
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #FFFFFF;
+      border: none;
+    }
+    .data-table tbody tr { border-bottom: 1px solid var(--pdf-border); }
+    .data-table tbody tr:nth-child(even) { background: var(--pdf-bg-alt); }
+    .data-table tbody td {
+      padding: 9px 12px;
+      color: var(--pdf-text);
+      font-size: 11px;
+      vertical-align: middle;
+    }
+    .data-table tbody tr.highlight-row {
+      background: rgba(29, 78, 216, 0.06);
+      border-left: 3px solid var(--pdf-blue2);
+      font-weight: 600;
+    }
+    .tag-blue   { color: var(--pdf-blue2); font-weight: 700; }
+    .tag-green  { color: var(--pdf-green); font-weight: 700; }
+    .tag-red    { color: var(--pdf-red);   font-weight: 700; }
+
+    /* ══════════════════════════════════════════════════════════════
+       BAR CHART ROWS (Escenarios)
+       ═══════════════════════════════════════════════════════════ */
+    .bar-row   { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+    .bar-label { width: 60px; font-size: 10px; font-weight: 600; color: var(--pdf-muted); flex-shrink: 0; text-align: right; }
+    .bar-track {
+      flex: 1; height: 14px;
+      background: var(--pdf-bg-alt);
+      border: 1px solid var(--pdf-border);
+      overflow: hidden;
+    }
+    .bar-fill  { height: 100%; background: var(--pdf-blue2); }
+    .bar-val   { width: 76px; font-size: 10px; font-weight: 700; color: var(--pdf-navy); text-align: right; flex-shrink: 0; }
+
+    /* ══════════════════════════════════════════════════════════════
+       CHART WRAPPER
+       ═══════════════════════════════════════════════════════════ */
+    .chart-wrap {
+      border: 1px solid var(--pdf-border);
+      background: var(--pdf-bg-light);
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       RECOMENDACIÓN
+       ═══════════════════════════════════════════════════════════ */
+    .rec-header {
+      background: var(--pdf-navy);
+      color: white;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .rec-header .label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 8px;
+    }
+    .rec-header .title {
+      font-size: 16px;
+      font-weight: 700;
+      color: white;
+      line-height: 1.4;
+    }
+    .rec-body {
+      background: var(--pdf-bg-light);
+      border: 1px solid var(--pdf-border);
+      padding: 20px 24px;
+      margin-bottom: 14px;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       DISCLAIMER
+       ═══════════════════════════════════════════════════════════ */
+    .disclaimer {
+      background: #FFFBEB;
+      border: 1px solid #FDE68A;
+      padding: 13px 18px;
+      font-size: 10px;
+      color: #78350F;
+      line-height: 1.65;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       NO-PRINT (button to return from PDF view)
+       ═══════════════════════════════════════════════════════════ */
+    .no-print {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--pdf-navy);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 24px;
+      letter-spacing: 0.02em;
+    }
+    .no-print:hover { background: var(--pdf-blue); }
+
+    /* ══════════════════════════════════════════════════════════════
+       @MEDIA PRINT — A4, exact colors, page breaks
+       ═══════════════════════════════════════════════════════════ */
+    @media print {
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      html, body {
+        background: white !important;
+        height: auto !important;
+        overflow: auto !important;
+      }
+      body::before { display: none !important; }
+      #root { height: auto !important; overflow: visible !important; }
+      .no-print, .app-container, #error-log { display: none !important; }
+
+      .pdf-report-container {
+        background: white !important;
+        padding: 0 !important;
+      }
+      .page {
+        width: 210mm !important;
+        max-width: 210mm !important;
+        min-height: 297mm !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+      .page:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+      }
+      .inner-page { padding-bottom: 80px !important; }
+    }
+  </style>
+
 </head>
 
 <body>
@@ -48,12 +562,12 @@
     const fmtCLP = (n) => n?.toLocaleString("es-CL", { style: "currency", currency: "CLP", minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
     const chartColors = {
-      sinPrepago: "#64748b", // Slate 500
-      conPrepagoPlazo: "#3b82f6", // Blue 500
-      conPrepagoCuota: "#10b981", // Emerald 500
-      grid: "rgba(148,163,184,0.05)",
-      text: "#94a3b8",
-      card: "#0f172a",
+      sinPrepago: "#AEACA6", // Gray 400
+      conPrepagoPlazo: "#185FA5", // Blue 600 institutional
+      conPrepagoCuota: "#3B6D11", // Emerald 600 BlackRock green
+      grid: "rgba(0,0,0,0.06)",
+      text: "#6B6860",
+      card: "#FAFAF9",
     };
 
     // ── HELPERS FINANCIEROS (Centralizados en financial_logic.js) ────────────────
@@ -71,6 +585,30 @@
     };
 
     // ── COMPONENTES UI ──────────────────────────────────────────────────────────
+
+    const SidebarClock = () => {
+      const [now, setNow] = React.useState(new Date());
+      React.useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(id);
+      }, []);
+      const hours = String(now.getHours()).padStart(2, '0');
+      const mins  = String(now.getMinutes()).padStart(2, '0');
+      const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const dateStr = `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`;
+      return (
+        <div style={{ background: "var(--color-background-secondary)", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: "var(--color-text-primary)", fontFamily: "var(--font-display)", lineHeight: 1.1 }}>
+            {hours}:{mins}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2, fontWeight: 500 }}>
+            {dateStr}
+          </div>
+        </div>
+      );
+    };
+
     const Input = ({ label, value, onChange, min, max, step = "any", prefix, suffix }) => (
       <div className="input-group">
         <label className="input-label">{label}</label>
@@ -136,19 +674,19 @@
       const formatSmallVal = (val, dec = 0) => moneda === "CLP" ? fmtCLP(val * valorUF) : `UF ${fmt(val, dec)}`;
 
       return (
-        <div className="animate-fade" style={{ overflow: "hidden", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)" }}>
-          <div ref={scrollContainerRef} style={{ overflowX: "auto", maxHeight: "600px", overflowY: "auto" }}>
+        <div className="animate-fade" style={{ overflow: "hidden", borderRadius: 12, border: "1px solid #ECEAE6" }}>
+          <div ref={scrollContainerRef} style={{ overflowX: "auto", maxHeight: "calc(100vh - 300px)", overflowY: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "Inter", textAlign: "right" }}>
-              <thead style={{ position: "sticky", top: 0, background: "rgba(15, 23, 42, 0.98)", backdropFilter: "blur(10px)", zIndex: 10 }}>
-                <tr style={{ color: "var(--text-muted)", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.05em" }}>
-                  <th style={{ padding: "12px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Mes</th>
-                  <th style={{ padding: "12px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Año</th>
-                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Dividendo Total</th>
-                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Interés</th>
-                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Amortización</th>
-                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", color: "#10b981" }}>Prepago</th>
-                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", color: "#f43f5e" }}>Multa</th>
-                  <th style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>Saldo Final</th>
+              <thead style={{ position: "sticky", top: 0, background: "#F3F2F0", zIndex: 10 }}>
+                <tr style={{ color: "#6B6860", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.05em" }}>
+                  <th style={{ padding: "12px 16px", textAlign: "center", borderBottom: "2px solid #E5E7EB" }}>Mes</th>
+                  <th style={{ padding: "12px 16px", textAlign: "center", borderBottom: "2px solid #E5E7EB" }}>Año</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "2px solid #E5E7EB" }}>Dividendo Total</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "2px solid #E5E7EB" }}>Interés</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "2px solid #E5E7EB" }}>Amortización</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "2px solid #E5E7EB", color: "#3B6D11" }}>Prepago</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "2px solid #E5E7EB", color: "#A32D2D" }}>Multa</th>
+                  <th style={{ padding: "12px 16px", borderBottom: "2px solid #E5E7EB" }}>Saldo Final</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,9 +697,9 @@
                   const calYear   = getCalYear(mesAbs);
 
                   let rowBg = "transparent";
-                  if (esVigente)  rowBg = "rgba(14, 165, 233, 0.12)";
-                  else if (esPagado) rowBg = "rgba(255,255,255,0.01)";
-                  else if (d.prepago > 0) rowBg = "rgba(16, 185, 129, 0.08)";
+                  if (esVigente)  rowBg = "#EDE8E0";
+                  else if (esPagado) rowBg = "#F3F2F0";
+                  else if (d.prepago > 0) rowBg = "rgba(59, 109, 17, 0.04)";
 
                   return (
                     <tr
@@ -169,28 +707,28 @@
                       ref={esVigente ? filaVigenteRef : null}
                       style={{
                         borderBottom: esVigente
-                          ? "2px solid rgba(14,165,233,0.5)"
-                          : "1px solid rgba(255,255,255,0.03)",
-                        borderTop: esVigente ? "2px solid rgba(14,165,233,0.5)" : "none",
+                          ? "2px solid #185FA5"
+                          : "1px solid #ECEAE6",
+                        borderTop: esVigente ? "2px solid #185FA5" : "none",
                         background: rowBg,
-                        color: esPagado ? "rgba(255,255,255,0.35)" : "#fff",
-                        opacity: esPagado ? 0.65 : 1,
-                        transition: "background 0.2s",
+                        color: esPagado ? "#AEACA6" : "#1A1915",
+                        opacity: esPagado ? 0.7 : 1,
+                        transition: "background 0.15s",
                         position: "relative"
                       }}
                     >
-                      <td style={{ padding: "10px 16px", textAlign: "center", color: esVigente ? "var(--accent-cyan)" : esPagado ? "rgba(148,163,184,0.5)" : "#94a3b8", fontWeight: esVigente ? 800 : 400 }}>
+                      <td style={{ padding: "10px 16px", textAlign: "center", color: esVigente ? "#185FA5" : esPagado ? "#D1D5DB" : "#AEACA6", fontWeight: esVigente ? 800 : 400 }}>
                         {mesAbs}
-                        {esVigente && <span style={{ marginLeft: 4, fontSize: 9, background: "var(--accent-cyan)", color: "#000", borderRadius: 4, padding: "1px 4px", fontWeight: 800 }}>HOY</span>}
+                        {esVigente && <span style={{ marginLeft: 4, fontSize: 9, background: "#185FA5", color: "#FFFFFF", borderRadius: 4, padding: "1px 4px", fontWeight: 800 }}>HOY</span>}
                       </td>
                       <td style={{ padding: "10px 16px", textAlign: "center", fontWeight: 600 }}>{calYear}</td>
                       <td style={{ padding: "10px 16px" }}>{formatVal(d.dividendoTotal ?? (d.cuotaBase + seguros))}</td>
-                      <td style={{ padding: "10px 16px", color: esPagado ? "inherit" : "rgba(255,255,255,0.7)" }}>{formatVal(d.interes)}</td>
+                      <td style={{ padding: "10px 16px", color: esPagado ? "inherit" : "#6B6860" }}>{formatVal(d.interes)}</td>
                       <td style={{ padding: "10px 16px" }}>{formatVal(d.amortizacion)}</td>
-                      <td style={{ padding: "10px 16px", color: "#10b981", fontWeight: 700 }}>
+                      <td style={{ padding: "10px 16px", color: "#3B6D11", fontWeight: 700 }}>
                         {d.prepago > 0 ? `+${formatSmallVal(d.prepago, 0)}` : "—"}
                       </td>
-                      <td style={{ padding: "10px 16px", color: "#f43f5e" }}>
+                      <td style={{ padding: "10px 16px", color: "#A32D2D" }}>
                         {d.multa > 0 ? formatVal(d.multa) : "—"}
                       </td>
                       <td style={{ padding: "10px 16px", fontWeight: 700 }}>{formatVal(d.saldo)}</td>
@@ -263,16 +801,16 @@
 
         // Create Gradients for Corporate Look
         const gradSin = ctx.createLinearGradient(0, 0, 0, 400);
-        gradSin.addColorStop(0, 'rgba(100, 116, 139, 0.3)');
-        gradSin.addColorStop(1, 'rgba(100, 116, 139, 0.01)');
+        gradSin.addColorStop(0, 'rgba(174, 172, 166, 0.12)');
+        gradSin.addColorStop(1, 'rgba(174, 172, 166, 0.01)');
 
         const gradPlazo = ctx.createLinearGradient(0, 0, 0, 400);
-        gradPlazo.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-        gradPlazo.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
+        gradPlazo.addColorStop(0, 'rgba(24, 95, 165, 0.14)');
+        gradPlazo.addColorStop(1, 'rgba(24, 95, 165, 0.01)');
 
         const gradCuota = ctx.createLinearGradient(0, 0, 0, 400);
-        gradCuota.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
-        gradCuota.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+        gradCuota.addColorStop(0, 'rgba(59, 109, 17, 0.14)');
+        gradCuota.addColorStop(1, 'rgba(59, 109, 17, 0.01)');
 
         const endLinesPlugin = {
           id: 'endLines',
@@ -291,9 +829,9 @@
               c.save();
 
               // Shadow for the badge
-              c.shadowColor = 'rgba(0, 0, 0, 0.3)';
-              c.shadowBlur = 6;
-              c.shadowOffsetY = 2;
+              c.shadowColor = 'rgba(0, 0, 0, 0.12)';
+              c.shadowBlur = 4;
+              c.shadowOffsetY = 1;
 
               // Badge Background (Pill shape) - Glassmorphism
               const padding = 10;
@@ -386,7 +924,7 @@
                 pointRadius: 0,
                 pointHoverRadius: 6,
                 pointHoverBorderWidth: 3,
-                pointHoverBackgroundColor: '#0f172a', // Corporate dark background
+                pointHoverBackgroundColor: '#FAFAF9',
                 tension: 0.4
               },
               {
@@ -399,7 +937,7 @@
                 pointRadius: 0,
                 pointHoverRadius: 8,
                 pointHoverBorderWidth: 3,
-                pointHoverBackgroundColor: '#0f172a', // Corporate dark background
+                pointHoverBackgroundColor: '#FAFAF9',
                 tension: 0.4
               },
               {
@@ -412,7 +950,7 @@
                 pointRadius: 0,
                 pointHoverRadius: 8,
                 pointHoverBorderWidth: 3,
-                pointHoverBackgroundColor: '#0f172a', // Corporate dark background
+                pointHoverBackgroundColor: '#FAFAF9',
                 tension: 0.4
               }
             ],
@@ -426,7 +964,7 @@
                 position: 'top',
                 align: 'end',
                 labels: {
-                  color: '#fff',
+                  color: '#6B6860',
                   font: { family: 'Inter', size: 12, weight: '600' },
                   usePointStyle: true,
                   boxWidth: 8,
@@ -436,12 +974,12 @@
               tooltip: {
                 mode: 'index',
                 intersect: false,
-                backgroundColor: 'rgba(24, 24, 27, 0.95)',
-                titleColor: '#fff',
-                titleFont: { family: 'Outfit', size: 14, weight: '700' },
-                bodyColor: '#e2e8f0',
+                backgroundColor: '#FAFAF9',
+                titleColor: '#1A1915',
+                titleFont: { family: 'Inter', size: 14, weight: '700' },
+                bodyColor: '#6B6860',
                 bodyFont: { family: 'Inter', size: 13 },
-                borderColor: 'rgba(255, 255, 255, 0.15)',
+                borderColor: '#DDDAD3',
                 borderWidth: 1,
                 padding: 12,
                 cornerRadius: 8,
@@ -452,7 +990,7 @@
                 }
               },
               hoyLine: {
-                color: 'var(--accent-rose)', // Make the 'Today' line neon rose
+                color: '#A32D2D',
                 dash: [4, 4],
                 width: 2
               }
@@ -461,11 +999,11 @@
               x: {
                 grid: {
                   display: true,
-                  color: 'rgba(255, 255, 255, 0.03)',
+                  color: 'rgba(0, 0, 0, 0.04)',
                   drawBorder: false
                 },
                 ticks: {
-                  color: 'rgba(255, 255, 255, 0.6)',
+                  color: '#AEACA6',
                   font: { family: 'Inter', size: 11 },
                   maxTicksLimit: 12,
                   callback: function (value, index) {
@@ -480,13 +1018,13 @@
               y: {
                 border: { display: false },
                 grid: {
-                  color: 'rgba(255, 255, 255, 0.05)',
+                  color: 'rgba(0, 0, 0, 0.05)',
                   drawTicks: false
                 },
                 ticks: {
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  font: { family: 'Inter', size: 11 },
-                  padding: 10,
+                  color: '#6B6860',
+                  font: { family: 'Inter', size: 13, weight: '500' },
+                  padding: 14,
                   callback: (v) => `UF ${fmt(v, 0)}`
                 }
               }
@@ -510,7 +1048,7 @@
     };
 
     // ── GRÁFICO BARRAS CUOTAS (NUEVO) ──────────────────────────────────────────
-    const GraficoCuotas = ({ evolucionCuota, cuotaBase, destino, valorUF }) => {
+    const GraficoCuotas = ({ evolucionCuota, cuotaBase, destino, valorUF, moneda = "UF" }) => {
       const chartRef = React.useRef(null);
       const chartInstance = React.useRef(null);
 
@@ -521,38 +1059,43 @@
           chartInstance.current.destroy();
         }
 
+        const isCLP = moneda === "CLP" && valorUF;
+        const conv = (v) => isCLP ? v * valorUF : v;
+        const fmtVal = (v) => isCLP ? `$${Math.round(v).toLocaleString('es-CL')}` : `UF ${fmt(v, 1)}`;
+        const fmtVal2 = (v) => isCLP ? `$${Math.round(v).toLocaleString('es-CL')}` : `UF ${fmt(v, 2)}`;
+        const prefix = isCLP ? "CLP" : "UF";
+        const cuotaBaseConv = conv(cuotaBase);
+
         const ctx = chartRef.current.getContext('2d');
         const labels = evolucionCuota.map(d => `Año ${d.ano}`);
 
         // Gradient fill for the prepago bars (Corporate Blue)
         const gradCon = ctx.createLinearGradient(0, 0, 0, 400);
-        gradCon.addColorStop(0, 'rgba(59, 130, 246, 0.85)');
-        gradCon.addColorStop(1, 'rgba(59, 130, 246, 0.1)');
+        gradCon.addColorStop(0, 'rgba(24, 95, 165, 0.75)');
+        gradCon.addColorStop(1, 'rgba(24, 95, 165, 0.15)');
 
         // Custom plugin: draw horizontal reference line + value labels on bars
         const refLinePlugin = {
           id: 'refLine',
           afterDatasetsDraw(chart) {
             const { ctx: c, chartArea: { left, right, top, bottom }, scales: { y } } = chart;
-            if (!cuotaBase || !y) return;
+            if (!cuotaBaseConv || !y) return;
 
-            // --- Horizontal dashed line for "Cuota Original" ---
-            const yPos = y.getPixelForValue(cuotaBase);
+            const yPos = y.getPixelForValue(cuotaBaseConv);
             c.save();
             c.beginPath();
             c.setLineDash([6, 4]);
-            c.strokeStyle = '#f43f5e';
+            c.strokeStyle = '#A32D2D';
             c.lineWidth = 2;
             c.moveTo(left, yPos);
             c.lineTo(right, yPos);
             c.stroke();
             c.setLineDash([]);
 
-            // Label for the reference line
-            c.fillStyle = '#f43f5e';
+            c.fillStyle = '#A32D2D';
             c.font = '600 12px Inter';
             c.textAlign = 'right';
-            c.fillText(`Cuota fija: UF ${fmt(cuotaBase, 1)}`, right - 4, yPos - 8);
+            c.fillText(`Cuota fija: ${fmtVal(cuotaBaseConv)}`, right - 4, yPos - 8);
             c.restore();
           }
         };
@@ -565,9 +1108,9 @@
             datasets: [
               {
                 label: 'Cuota con Prepago',
-                data: evolucionCuota.map(d => d.cuotaCon),
+                data: evolucionCuota.map(d => conv(d.cuotaCon)),
                 backgroundColor: gradCon,
-                borderColor: '#3b82f6',
+                borderColor: '#185FA5',
                 borderWidth: 0,
                 borderRadius: 6,
                 borderSkipped: false,
@@ -577,7 +1120,7 @@
             ],
           },
           options: {
-            layout: { padding: { top: 30, right: 16, left: 8 } },
+            layout: { padding: { top: 30, right: 16, left: 16 } },
             responsive: true,
             maintainAspectRatio: false,
             animation: {
@@ -590,25 +1133,25 @@
                 position: 'top',
                 align: 'end',
                 labels: {
-                  color: '#fff',
+                  color: '#6B6860',
                   font: { family: 'Inter', size: 12, weight: '600' },
                   usePointStyle: true,
                   boxWidth: 10,
                   generateLabels: () => [
-                    { text: 'Cuota Original (fija)', fillStyle: '#f43f5e', strokeStyle: '#f43f5e', lineWidth: 2, lineDash: [6, 4], pointStyle: 'line', fontColor: '#fff' },
-                    { text: 'Cuota con Prepago', fillStyle: 'rgba(59, 130, 246, 0.85)', strokeStyle: '#3b82f6', lineWidth: 0, pointStyle: 'rect', fontColor: '#fff' }
+                    { text: 'Cuota Original (fija)', fillStyle: '#A32D2D', strokeStyle: '#A32D2D', lineWidth: 2, lineDash: [6, 4], pointStyle: 'line', fontColor: '#6B6860' },
+                    { text: 'Cuota con Prepago', fillStyle: 'rgba(24, 95, 165, 0.75)', strokeStyle: '#185FA5', lineWidth: 0, pointStyle: 'rect', fontColor: '#6B6860' }
                   ]
                 }
               },
               tooltip: {
                 mode: 'index',
                 intersect: false,
-                backgroundColor: '#18181b',
-                titleColor: '#fff',
-                titleFont: { family: 'Outfit', size: 13, weight: '700' },
-                bodyColor: '#e2e8f0',
+                backgroundColor: '#FAFAF9',
+                titleColor: '#1A1915',
+                titleFont: { family: 'Inter', size: 13, weight: '700' },
+                bodyColor: '#6B6860',
                 bodyFont: { family: 'Inter', size: 12 },
-                borderColor: 'rgba(255, 255, 255, 0.12)',
+                borderColor: '#DDDAD3',
                 borderWidth: 1,
                 padding: 10,
                 cornerRadius: 6,
@@ -616,22 +1159,18 @@
                 displayColors: false,
                 callbacks: {
                   title: (items) => items[0]?.label || '',
-                  beforeBody: () => [`Cuota Original: UF ${fmt(cuotaBase, 2)}`],
+                  beforeBody: () => [`Cuota Original: ${fmtVal2(cuotaBaseConv)}`],
                   label: (context) => {
                     const val = context.parsed.y;
-                    const diff = cuotaBase - val;
-                    const pct = ((diff / cuotaBase) * 100).toFixed(1);
+                    const diff = cuotaBaseConv - val;
+                    const pct = ((diff / cuotaBaseConv) * 100).toFixed(1);
                     if (val <= 0) return 'Crédito liquidado';
-                    const lines = [`Cuota Proyectada: UF ${fmt(val, 2)}  (↓${pct}%)`];
-                    if (valorUF) {
-                      lines.push(`Cuota Proyectada: ${Math.round(val * valorUF).toLocaleString('es-CL')} CLP`);
-                    }
-                    return lines;
+                    return [`Cuota Proyectada: ${fmtVal2(val)}  (↓${pct}%)`];
                   },
                   afterBody: (items) => {
                     const val = items[0]?.parsed?.y || 0;
-                    const diff = cuotaBase - val;
-                    return diff > 0 ? [`Ahorro mensual: UF ${fmt(diff, 2)}`] : [];
+                    const diff = cuotaBaseConv - val;
+                    return diff > 0 ? [`Ahorro mensual: ${fmtVal2(diff)}`] : [];
                   }
                 }
               }
@@ -641,7 +1180,7 @@
                 grid: { display: false },
                 border: { display: false },
                 ticks: {
-                  color: 'rgba(255, 255, 255, 0.5)',
+                  color: '#AEACA6',
                   font: { family: 'Inter', size: 11, weight: '500' },
                   maxRotation: 0
                 }
@@ -649,13 +1188,13 @@
               y: {
                 border: { display: false },
                 beginAtZero: true,
-                suggestedMax: cuotaBase * 1.15,
-                grid: { color: 'rgba(255, 255, 255, 0.04)', drawTicks: false },
+                suggestedMax: cuotaBaseConv * 1.15,
+                grid: { color: 'rgba(0, 0, 0, 0.05)', drawTicks: false },
                 ticks: {
-                  color: 'rgba(255, 255, 255, 0.5)',
-                  font: { family: 'Inter', size: 11 },
-                  padding: 10,
-                  callback: (v) => `UF ${fmt(v, 0)}`
+                  color: '#6B6860',
+                  font: { family: 'Inter', size: 13, weight: '500' },
+                  padding: 14,
+                  callback: (v) => isCLP ? `$${Math.round(v/1000)}k` : `UF ${fmt(v, 1)}`
                 }
               }
             },
@@ -666,7 +1205,7 @@
         return () => {
           if (chartInstance.current) chartInstance.current.destroy();
         };
-      }, [evolucionCuota, cuotaBase]);
+      }, [evolucionCuota, cuotaBase, moneda, valorUF]);
 
       return (
         <div style={{ height: "100%", position: "relative" }}>
@@ -704,16 +1243,16 @@
           <div className="grid-2" style={{ gap: 16 }}>
             {/* ────── MODELO A: PUNTO DE EQUILIBRIO DE INFLACIÓN ────── */}
             <div className="glass-card" style={{ padding: "16px", display: "flex", flexDirection: "column" }}>
-              <h3 style={{ fontSize: 14, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <h3 style={{ fontSize: 14, color: "#1A1915", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ color: "var(--accent-indigo)" }}>A.</span> Punto de Equilibrio (π*)
               </h3>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.5 }}>
                 En Chile, la deuda hipotecaria está en UF y la inversión en pesos (CLP). Este modelo calcula la <strong>inflación exacta</strong> en la que tu crédito se encarece tanto que empata con la rentabilidad de tu inversión.
               </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.03)", padding: "16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#F3F2F0", padding: "16px", borderRadius: 8, border: "1px solid #E5E7EB", marginBottom: 16 }}>
                 <div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, textTransform: "uppercase" }}>Break-even (π*)</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: "#fff" }}>{(piElegible * 100).toFixed(2)}%</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#1A1915" }}>{(piElegible * 100).toFixed(2)}%</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, textTransform: "uppercase" }}>Tu Proyección (π)</div>
@@ -730,13 +1269,13 @@
                 let bg, color, title, desc;
 
                 if (inf > upperBound) {
-                  bg = "rgba(16,185,129,0.1)"; color = "#10b981";
+                  bg = "rgba(5,150,105,0.08)"; color = "#3B6D11";
                   title = "🟢 PREPAGO GANA"; desc = "La inflación proyectada es demasiado alta. Tu deuda en UF está creciendo más rápido de lo que rendiría el capital en el banco. Matemática y financieramente, te conviene liquidar la deuda.";
                 } else if (inf < lowerBound) {
-                  bg = "rgba(244,63,94,0.1)"; color = "#f43f5e";
+                  bg = "rgba(220,38,38,0.08)"; color = "#A32D2D";
                   title = "🔴 INVERSIÓN GANA"; desc = "Con una inflación baja, la UF crece lento. El dinero tiene mucha más fuerza multiplicadora rindiendo en tu instrumento financiero que destruyendo pasivos estáticos.";
                 } else {
-                  bg = "rgba(245,158,11,0.1)"; color = "#f59e0b";
+                  bg = "rgba(217,119,6,0.08)"; color = "#BA7517";
                   title = "🟡 ZONA DE INDIFERENCIA"; desc = `La inflación proyectada está extremadamente cerca del punto de equilibrio [${lowerBound.toFixed(2)}% - ${upperBound.toFixed(2)}%]. En este margen, la rentabilidad es casi idéntica; elige la opción que te dé mayor liquidez o tranquilidad psicológica.`;
                 }
 
@@ -751,38 +1290,38 @@
 
             {/* ────── MODELO B: ARBITRAJE Y PARIDAD ────── */}
             <div className="glass-card" style={{ padding: "16px", display: "flex", flexDirection: "column" }}>
-              <h3 style={{ fontSize: 14, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <h3 style={{ fontSize: 14, color: "#1A1915", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ color: "var(--accent-indigo)" }}>B.</span> Arbitraje y Paridad (Fisher)
               </h3>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.5 }}>
                 Transforma el costo en UF de tu crédito a una <strong>Tasa Anual Nominal (CLP)</strong> para compararlo directamente (peras con peras) con el retorno de tu inversión bancaria.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 12 }}>
-                <div style={{ background: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 8, textAlign: "center" }}>
+                <div style={{ background: "#F3F2F0", padding: 12, borderRadius: 8, textAlign: "center" }}>
                   <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase" }}>Costo Total Efectivo Nominal</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: "var(--accent-cyan)" }}>{(i_nom * 100).toFixed(2)}%</div>
                 </div>
-                <div style={{ background: deltaFisher > 0 ? "rgba(16,185,129,0.1)" : "rgba(244,63,94,0.1)", padding: 12, borderRadius: 8, textAlign: "center", border: `1px solid ${deltaFisher > 0 ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}` }}>
-                  <div style={{ fontSize: 10, color: deltaFisher > 0 ? "#10b981" : "#f43f5e", marginBottom: 6, textTransform: "uppercase" }}>Spread de Arbitraje Neto</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: deltaFisher > 0 ? "#10b981" : "#f43f5e" }}>
+                <div style={{ background: deltaFisher > 0 ? "rgba(5,150,105,0.08)" : "rgba(220,38,38,0.08)", padding: 12, borderRadius: 8, textAlign: "center", border: `1px solid ${deltaFisher > 0 ? 'rgba(5,150,105,0.2)' : 'rgba(220,38,38,0.2)'}` }}>
+                  <div style={{ fontSize: 10, color: deltaFisher > 0 ? "#3B6D11" : "#A32D2D", marginBottom: 6, textTransform: "uppercase" }}>Spread de Arbitraje Neto</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: deltaFisher > 0 ? "#3B6D11" : "#A32D2D" }}>
                     {deltaFisher > 0 ? '+' : ''}{(deltaFisher * 100).toFixed(2)}%
                   </div>
                 </div>
-                <div style={{ background: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 8, textAlign: "center" }}>
+                <div style={{ background: "#F3F2F0", padding: 12, borderRadius: 8, textAlign: "center" }}>
                   <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase" }}>Retorno Nominal Inversión</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{(+retornoInv).toFixed(2)}%</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "#1A1915" }}>{(+retornoInv).toFixed(2)}%</div>
                 </div>
               </div>
               <div style={{
-                background: esDominante ? "rgba(16,185,129,0.1)" : "rgba(244,63,94,0.1)",
-                border: `1px solid ${esDominante ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}`,
-                color: esDominante ? "#10b981" : "#f43f5e",
+                background: esDominante ? "rgba(5,150,105,0.08)" : "rgba(220,38,38,0.08)",
+                border: `1px solid ${esDominante ? 'rgba(5,150,105,0.2)' : 'rgba(220,38,38,0.2)'}`,
+                color: esDominante ? "#3B6D11" : "#A32D2D",
                 padding: "16px", borderRadius: 8, marginTop: "auto"
               }}>
                 <div style={{ fontSize: 13, fontWeight: 800, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
                   {esDominante ? '🟢 Costo Crédito > Retorno Inversión' : '🔴 Costo Crédito < Retorno Inversión'}
                 </div>
-                <div style={{ fontSize: 12, textAlign: "center", opacity: 0.9, lineHeight: 1.4, color: esDominante ? "#10b981" : "#f43f5e" }}>
+                <div style={{ fontSize: 12, textAlign: "center", opacity: 0.9, lineHeight: 1.4, color: esDominante ? "#3B6D11" : "#A32D2D" }}>
                   {esDominante
                     ? `Tu crédito te cuesta ${(i_nom * 100).toFixed(2)}% anual nominal, pero tu dinero solo rinde ${(+retornoInv).toFixed(2)}%. Estás perdiendo patrimonio manteniendo dinero invertido en lugar de pagar deuda cara.`
                     : `Cerrar este crédito es ineficiente. El costo financiero en UF sale más barato (${(i_nom * 100).toFixed(2)}% nominal) que lo que el banco te paga por mantener el dinero en fondos (${(+retornoInv).toFixed(2)}%). Acumula capital tranquilo.`}
@@ -843,42 +1382,42 @@
           <div className="grid-2" style={{ gap: 16 }}>
             {/* ────── MODELO C: VALOR PRESENTE NETO ────── */}
             <div className="glass-card" style={{ padding: "16px", display: "flex", flexDirection: "column" }}>
-              <h3 style={{ fontSize: 14, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <h3 style={{ fontSize: 14, color: "#1A1915", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ color: "var(--accent-indigo)" }}>C.</span> Valor Presente Neto (VPN)
               </h3>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.5 }}>
                 El dinero en el futuro vale menos que hoy. Este modelo <strong>descuenta todos los flujos de tus dividendos futuros</strong> de vuelta al día de hoy, usando tu rentabilidad de inversión como barrera de descuento.
               </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, background: "rgba(255,255,255,0.03)", padding: "12px", borderRadius: "8px 8px 0 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, background: "#F3F2F0", padding: "12px", borderRadius: "8px 8px 0 0", borderBottom: "1px solid #E5E7EB" }}>
                 <div>
                   <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>VP Contrato Base</div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>Sin prepagar nada</div>
+                  <div style={{ fontSize: 11, color: "#AEACA6", marginTop: 2 }}>Sin prepagar nada</div>
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", alignSelf: "center" }}>UF {fmt(vpContrato)}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#1A1915", alignSelf: "center" }}>UF {fmt(vpContrato)}</div>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, background: "rgba(255,255,255,0.03)", padding: "12px", borderRadius: "0 0 8px 8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, background: "#F3F2F0", padding: "12px", borderRadius: "0 0 8px 8px" }}>
                 <div>
                   <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>VP Estrategia (+ Prepago)</div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>Inyección + Nuevos flujos</div>
+                  <div style={{ fontSize: 11, color: "#AEACA6", marginTop: 2 }}>Inyección + Nuevos flujos</div>
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", alignSelf: "center" }}>UF {fmt(vpPrepago)}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#1A1915", alignSelf: "center" }}>UF {fmt(vpPrepago)}</div>
               </div>
 
               <div style={{
-                background: convieneVPN ? "rgba(16,185,129,0.1)" : "rgba(244,63,94,0.1)",
-                border: `1px solid ${convieneVPN ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}`,
+                background: convieneVPN ? "rgba(5,150,105,0.08)" : "rgba(220,38,38,0.08)",
+                border: `1px solid ${convieneVPN ? 'rgba(5,150,105,0.2)' : 'rgba(220,38,38,0.2)'}`,
                 padding: "16px", borderRadius: 8, marginTop: "auto"
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: convieneVPN ? "#10b981" : "#f43f5e", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: convieneVPN ? "#3B6D11" : "#A32D2D", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     Creación Neta de Patrimonio
                   </span>
-                  <span style={{ fontSize: 24, fontWeight: 800, color: convieneVPN ? "#10b981" : "#f43f5e" }}>
+                  <span style={{ fontSize: 24, fontWeight: 800, color: convieneVPN ? "#3B6D11" : "#A32D2D" }}>
                     {convieneVPN ? "+" : ""}UF {fmt(ahorroVPN)}
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: convieneVPN ? "#10b981" : "#f43f5e", opacity: 0.9, lineHeight: 1.4 }}>
+                <div style={{ fontSize: 12, color: convieneVPN ? "#3B6D11" : "#A32D2D", opacity: 0.9, lineHeight: 1.4 }}>
                   {convieneVPN
                     ? `Al ejecutar esta estrategia, estás "destruyendo obligaciones" y agregando directamente riqueza presente y pura a tu hoja de balance personal.`
                     : `Destinar capital hoy para comprar deuda barata está "destruyendo" valor presente en tu patrimonio neto en favor del banco.`}
@@ -888,14 +1427,14 @@
 
             {/* ────── MODELO D: MONTE CARLO ────── */}
             <div className="glass-card" style={{ padding: "16px", background: "linear-gradient(135deg, rgba(24,24,27,1) 0%, rgba(245,158,11,0.05) 100%)", display: "flex", flexDirection: "column" }}>
-              <h3 style={{ fontSize: 14, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <h3 style={{ fontSize: 14, color: "#1A1915", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ color: "var(--accent-amber)" }}>D.</span> Monte Carlo (Probabilidades)
               </h3>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.5 }}>
                 Las inversiones rara vez tienen un retorno fijo asegurado. Este modelo somete tu retorno del {retornoInv}% a un entorno de <strong>caos y volatilidad estocástica</strong> para medir la verdadera probabilidad de vencer al banco en el mundo real.
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, background: "rgba(0,0,0,0.2)", padding: "16px", borderRadius: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, background: "#F3F2F0", padding: "16px", borderRadius: 8, border: "1px solid #E5E7EB", flexWrap: "wrap" }}>
                 <div style={{ fontSize: 42, fontWeight: 800, color: "var(--accent-amber)", lineHeight: 1 }}>{(probConveniencia * 100).toFixed(1)}%</div>
                 <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
                   <strong>Probabilidad de Éxito.</strong><br />
@@ -903,21 +1442,21 @@
                 </div>
               </div>
 
-              <div style={{ background: "rgba(255,255,255,0.03)", padding: "16px", borderRadius: 8, marginTop: "auto" }}>
+              <div style={{ background: "#F3F2F0", padding: "16px", borderRadius: 8, marginTop: "auto" }}>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10, textTransform: "uppercase", fontWeight: 600 }}>Espectro de Ahorro Neto UF (P10 - P90)</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>UF {fmt(mcRango[0], 0)}</div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Peor Escenario</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1A1915" }}>UF {fmt(mcRango[0], 0)}</div>
+                    <div style={{ fontSize: 10, color: "#AEACA6" }}>Peor Escenario</div>
                   </div>
                   <div style={{ flex: 1, position: "relative" }}>
-                    <div style={{ height: 6, background: "rgba(0,0,0,0.4)", borderRadius: 3, overflow: "hidden" }}>
-                      <div style={{ width: "100%", height: "100%", background: "linear-gradient(90deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.8), rgba(245, 158, 11, 0.2))", borderRadius: 3, opacity: 0.8 }}></div>
+                    <div style={{ height: 6, background: "#DDDAD3", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{ width: "100%", height: "100%", background: "linear-gradient(90deg, rgba(217, 119, 6, 0.15), rgba(217, 119, 6, 0.6), rgba(217, 119, 6, 0.15))", borderRadius: 3, opacity: 0.8 }}></div>
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>UF {fmt(mcRango[1], 0)}</div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Mejor Escenario</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1A1915" }}>UF {fmt(mcRango[1], 0)}</div>
+                    <div style={{ fontSize: 10, color: "#AEACA6" }}>Mejor Escenario</div>
                   </div>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 12, textAlign: "center", fontStyle: "italic" }}>
@@ -972,7 +1511,7 @@
         const montos = [...candidates].sort((a, b) => a - b).slice(0, 4);
 
         // Colors for the 4 curves
-        const curveColors = ['#f59e0b', '#10b981', '#06b6d4', '#8b5cf6'];
+        const curveColors = ['#BA7517', '#3B6D11', '#185FA5', '#534AB7'];
 
         // Generate datasets: baseline + 4 scenarios
         // Baseline: sin prepago
@@ -983,7 +1522,7 @@
         const datasets = [{
           label: 'Sin Prepago',
           data: basePoints,
-          borderColor: '#64748b',
+          borderColor: '#AEACA6',
           borderWidth: 2,
           borderDash: [6, 4],
           pointRadius: 0,
@@ -1018,7 +1557,7 @@
               legend: {
                 position: 'top', align: 'end',
                 labels: {
-                  color: '#fff',
+                  color: '#6B6860',
                   font: { family: 'Inter', size: 11, weight: '600' },
                   usePointStyle: true, boxWidth: 8, padding: 16
                 }
@@ -1026,12 +1565,12 @@
               tooltip: {
                 mode: 'nearest',
                 intersect: false,
-                backgroundColor: '#18181b',
-                titleColor: '#fff',
-                titleFont: { family: 'Outfit', size: 13, weight: '700' },
-                bodyColor: '#e2e8f0',
+                backgroundColor: '#FAFAF9',
+                titleColor: '#1A1915',
+                titleFont: { family: 'Inter', size: 13, weight: '700' },
+                bodyColor: '#6B6860',
                 bodyFont: { family: 'Inter', size: 12 },
-                borderColor: 'rgba(255, 255, 255, 0.12)',
+                borderColor: '#DDDAD3',
                 borderWidth: 1,
                 padding: 10,
                 cornerRadius: 6,
@@ -1045,11 +1584,11 @@
             scales: {
               x: {
                 type: 'linear',
-                title: { display: true, text: 'Meses', color: 'rgba(255,255,255,0.4)', font: { family: 'Inter', size: 11 } },
+                title: { display: true, text: 'Meses', color: '#AEACA6', font: { family: 'Inter', size: 11 } },
                 grid: { display: false },
                 border: { display: false },
                 ticks: {
-                  color: 'rgba(255, 255, 255, 0.5)',
+                  color: '#AEACA6',
                   font: { family: 'Inter', size: 11 },
                   maxRotation: 0,
                   callback: (v) => {
@@ -1061,9 +1600,9 @@
               y: {
                 border: { display: false },
                 beginAtZero: true,
-                grid: { color: 'rgba(255, 255, 255, 0.04)', drawTicks: false },
+                grid: { color: 'rgba(0, 0, 0, 0.05)', drawTicks: false },
                 ticks: {
-                  color: 'rgba(255, 255, 255, 0.5)',
+                  color: '#AEACA6',
                   font: { family: 'Inter', size: 11 },
                   padding: 10,
                   callback: (v) => `UF ${fmt(v, 0)}`
@@ -1091,6 +1630,8 @@
       const fNum = (num) => (+num).toLocaleString('es-CL', { maximumFractionDigits: 1 });
       const fMon = (num) => `UF ${fNum(num)}`;
       const fmtM = (m) => `${Math.floor(m / 12)}a ${m % 12}m`;
+      // Dividendo total (cuota + seguros)
+      const dividendoTotal = cuotaBase + (+cr.seguros || 0);
 
       // Wrapper para simular escenarios
       const runSim = (monto) => {
@@ -1207,44 +1748,44 @@
               <div className="page-number"><strong>Índice</strong></div>
             </div>
 
-            <div style={{ fontSize: 13, color: "#0f172a", lineHeight: 2.1, fontFamily: 'Inter' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+            <div style={{ fontSize: 13, color: "#1A1915", lineHeight: 2.1, fontFamily: 'Inter' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #E5E7EB' }}>
                 <span>1. Portada y Resumen Ejecutivo</span>
-                <span style={{ color: '#94a3b8' }}>1</span>
+                <span style={{ color: '#AEACA6' }}>1</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #E5E7EB' }}>
                 <span>2. Parámetros de Entrada y Supuestos</span>
-                <span style={{ color: '#94a3b8' }}>3</span>
+                <span style={{ color: '#AEACA6' }}>3</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #E5E7EB' }}>
                 <span>3. Diagnóstico del Crédito Actual</span>
-                <span style={{ color: '#94a3b8' }}>4</span>
+                <span style={{ color: '#AEACA6' }}>4</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #E5E7EB' }}>
                 <span>4. Análisis de Escenarios de Prepago</span>
-                <span style={{ color: '#94a3b8' }}>5</span>
+                <span style={{ color: '#AEACA6' }}>5</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #E5E7EB' }}>
                 <span>5. Proyección Financiera y Evolución del Saldo</span>
-                <span style={{ color: '#94a3b8' }}>6</span>
+                <span style={{ color: '#AEACA6' }}>6</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #E5E7EB' }}>
                 <span>6. Análisis de Sensibilidad y Riesgos</span>
-                <span style={{ color: '#94a3b8' }}>7</span>
+                <span style={{ color: '#AEACA6' }}>7</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #E5E7EB' }}>
                 <span>7. Recomendación Estratégica y Plan de Acción</span>
-                <span style={{ color: '#94a3b8' }}>8</span>
+                <span style={{ color: '#AEACA6' }}>8</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid #E5E7EB' }}>
                 <span>8. Disclaimers y Consideraciones Legales</span>
-                <span style={{ color: '#94a3b8' }}>9</span>
+                <span style={{ color: '#AEACA6' }}>9</span>
               </div>
             </div>
 
-            <div style={{ marginTop: 16, padding: '12px', background: 'rgba(99, 102, 241, 0.08)', borderLeft: `4px solid #6366f1`, borderRadius: 4 }}>
+            <div style={{ marginTop: 16, padding: '12px', background: 'rgba(37, 99, 235, 0.06)', borderLeft: `4px solid #2563EB`, borderRadius: 4 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Documento de Referencia</div>
-              <div style={{ fontSize: 10, color: '#0f172a', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 10, color: '#1A1915', lineHeight: 1.5 }}>
                 Este reporte ha sido generado localmente utilizando datos bancarios y supuestos macroeconómicos ingresados en el simulador. Los cálculos se basan en sistema de amortización francesa con compounding mensual. La información contenida es válida únicamente para la fecha de emisión y bajo los supuestos especificados en la página siguiente.
               </div>
             </div>
@@ -1270,29 +1811,29 @@
             {/* Sección Crédito */}
             <div className="section-title">Especificaciones del Crédito Hipotecario</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Capital Original</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{fMon(cr.capital)}</div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#AEACA6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Capital Original</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1915' }}>{fMon(cr.capital)}</div>
               </div>
-              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Plazo Total</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{fmtM(+cr.plazo)}</div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#AEACA6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Plazo Total</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1915' }}>{fmtM(+cr.plazo)}</div>
               </div>
-              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Meses Pagados</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{fmtM(+cr.mesesPagados)}</div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#AEACA6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Meses Pagados</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1915' }}>{fmtM(+cr.mesesPagados)}</div>
               </div>
-              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>TNA (Nominal)</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{cr.tna}%</div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#AEACA6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>TNA (Nominal)</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1915' }}>{cr.tna}%</div>
               </div>
-              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Coste Seguros</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{cr.seguros} UF</div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#AEACA6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Coste Seguros</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1915' }}>{cr.seguros} UF</div>
               </div>
-              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Multa por Prepago</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{cr.costoPrepago}%</div>
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#AEACA6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Multa por Prepago</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1915' }}>{cr.costoPrepago}%</div>
               </div>
             </div>
 
@@ -1537,35 +2078,35 @@
                     <stop offset="100%" stopColor="#dc2626" stopOpacity="0.01" />
                   </linearGradient>
                   <linearGradient id="gCon" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#059669" stopOpacity="0.22" />
-                    <stop offset="100%" stopColor="#059669" stopOpacity="0.01" />
+                    <stop offset="0%" stopColor="#3B6D11" stopOpacity="0.22" />
+                    <stop offset="100%" stopColor="#3B6D11" stopOpacity="0.01" />
                   </linearGradient>
                 </defs>
 
                 {/* Grid horizontal */}
-                <line x1="60" x2="630" y1="30" y2="30" stroke="#e2e8f0" strokeWidth="1" />
-                <line x1="60" x2="630" y1={mapY(maxSaldo * 0.75)} y2={mapY(maxSaldo * 0.75)} stroke="#e2e8f0" strokeWidth="1" />
-                <line x1="60" x2="630" y1={mapY(maxSaldo * 0.5)} y2={mapY(maxSaldo * 0.5)} stroke="#e2e8f0" strokeWidth="1" />
-                <line x1="60" x2="630" y1={mapY(maxSaldo * 0.25)} y2={mapY(maxSaldo * 0.25)} stroke="#e2e8f0" strokeWidth="1" />
-                <line x1="60" x2="630" y1="245" y2="245" stroke="#e2e8f0" strokeWidth="1" />
+                <line x1="60" x2="630" y1="30" y2="30" stroke="#DDDAD3" strokeWidth="1" />
+                <line x1="60" x2="630" y1={mapY(maxSaldo * 0.75)} y2={mapY(maxSaldo * 0.75)} stroke="#DDDAD3" strokeWidth="1" />
+                <line x1="60" x2="630" y1={mapY(maxSaldo * 0.5)} y2={mapY(maxSaldo * 0.5)} stroke="#DDDAD3" strokeWidth="1" />
+                <line x1="60" x2="630" y1={mapY(maxSaldo * 0.25)} y2={mapY(maxSaldo * 0.25)} stroke="#DDDAD3" strokeWidth="1" />
+                <line x1="60" x2="630" y1="245" y2="245" stroke="#DDDAD3" strokeWidth="1" />
 
                 {/* Etiquetas Y */}
-                <text x="52" y="34" textAnchor="end" fontSize="10" fill="#94a3b8">{fNum(maxSaldo)}</text>
-                <text x="52" y={mapY(maxSaldo * 0.75) + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{fNum(maxSaldo * 0.75)}</text>
-                <text x="52" y={mapY(maxSaldo * 0.5) + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{fNum(maxSaldo * 0.5)}</text>
-                <text x="52" y={mapY(maxSaldo * 0.25) + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{fNum(maxSaldo * 0.25)}</text>
-                <text x="52" y="249" textAnchor="end" fontSize="10" fill="#94a3b8">0</text>
+                <text x="52" y="34" textAnchor="end" fontSize="10" fill="#AEACA6">{fNum(maxSaldo)}</text>
+                <text x="52" y={mapY(maxSaldo * 0.75) + 4} textAnchor="end" fontSize="10" fill="#AEACA6">{fNum(maxSaldo * 0.75)}</text>
+                <text x="52" y={mapY(maxSaldo * 0.5) + 4} textAnchor="end" fontSize="10" fill="#AEACA6">{fNum(maxSaldo * 0.5)}</text>
+                <text x="52" y={mapY(maxSaldo * 0.25) + 4} textAnchor="end" fontSize="10" fill="#AEACA6">{fNum(maxSaldo * 0.25)}</text>
+                <text x="52" y="249" textAnchor="end" fontSize="10" fill="#AEACA6">0</text>
 
-                <text x="12" y="145" textAnchor="middle" fontSize="10" fill="#64748b" transform="rotate(-90,12,145)">Saldo (UF)</text>
+                <text x="12" y="145" textAnchor="middle" fontSize="10" fill="#AEACA6" transform="rotate(-90,12,145)">Saldo (UF)</text>
 
                 {/* Etiquetas X */}
-                <text x="60" y="262" textAnchor="middle" fontSize="10" fill="#94a3b8">Hoy</text>
-                <text x={mapX(maxMes * 0.25)} y="262" textAnchor="middle" fontSize="10" fill="#94a3b8">{Math.ceil(maxMes * 0.25 / 12)} Años</text>
-                <text x={mapX(maxMes * 0.5)} y="262" textAnchor="middle" fontSize="10" fill="#94a3b8">{Math.ceil(maxMes * 0.5 / 12)} Años</text>
-                <text x={mapX(maxMes * 0.75)} y="262" textAnchor="middle" fontSize="10" fill="#94a3b8">{Math.ceil(maxMes * 0.75 / 12)} Años</text>
-                <text x="630" y="262" textAnchor="middle" fontSize="10" fill="#94a3b8">{Math.ceil(maxMes / 12)} Años</text>
+                <text x="60" y="262" textAnchor="middle" fontSize="10" fill="#AEACA6">Hoy</text>
+                <text x={mapX(maxMes * 0.25)} y="262" textAnchor="middle" fontSize="10" fill="#AEACA6">{Math.ceil(maxMes * 0.25 / 12)} Años</text>
+                <text x={mapX(maxMes * 0.5)} y="262" textAnchor="middle" fontSize="10" fill="#AEACA6">{Math.ceil(maxMes * 0.5 / 12)} Años</text>
+                <text x={mapX(maxMes * 0.75)} y="262" textAnchor="middle" fontSize="10" fill="#AEACA6">{Math.ceil(maxMes * 0.75 / 12)} Años</text>
+                <text x="630" y="262" textAnchor="middle" fontSize="10" fill="#AEACA6">{Math.ceil(maxMes / 12)} Años</text>
 
-                <text x="345" y="278" textAnchor="middle" fontSize="10" fill="#64748b">Tiempo Transcurrido</text>
+                <text x="345" y="278" textAnchor="middle" fontSize="10" fill="#AEACA6">Tiempo Transcurrido</text>
 
                 {/* ÁREA Y LÍNEA SIN PREPAGO */}
                 <path d={areaSin} fill="url(#gSin)" />
@@ -1573,15 +2114,15 @@
 
                 {/* ÁREA Y LÍNEA CON PREPAGO */}
                 <path d={areaCon} fill="url(#gCon)" />
-                <path d={pathCon} fill="none" stroke="#059669" strokeWidth="2.5" />
+                <path d={pathCon} fill="none" stroke="#3B6D11" strokeWidth="2.5" />
 
                 {/* Punto fin con prepago */}
-                <circle cx={mapX(lastMesCon)} cy="245" r="4" fill="#059669" />
-                <line x1={mapX(lastMesCon)} x2={mapX(lastMesCon)} y1={mapY(maxSaldo)} y2="245" stroke="#059669" strokeWidth="1" strokeDasharray="3,2" />
+                <circle cx={mapX(lastMesCon)} cy="245" r="4" fill="#3B6D11" />
+                <line x1={mapX(lastMesCon)} x2={mapX(lastMesCon)} y1={mapY(maxSaldo)} y2="245" stroke="#3B6D11" strokeWidth="1" strokeDasharray="3,2" />
 
                 {/* Leyenda */}
-                <rect x="64" y="12" width="14" height="3" fill="#059669" rx="2" />
-                <text x="82" y="16" fontSize="10" fill="#059669" fontWeight="700">Con prepago {pr.frecuencia}</text>
+                <rect x="64" y="12" width="14" height="3" fill="#3B6D11" rx="2" />
+                <text x="82" y="16" fontSize="10" fill="#3B6D11" fontWeight="700">Con prepago {pr.frecuencia}</text>
                 <line x1="210" y1="13" x2="224" y2="13" stroke="#dc2626" strokeWidth="2" strokeDasharray="5,3" />
                 <circle cx="217" cy="13" r="0" />
                 <text x="228" y="17" fontSize="10" fill="#dc2626">Sin prepago</text>
@@ -1643,13 +2184,13 @@
               <div className="page-number"><strong>07</strong>Sensibilidad</div>
             </div>
 
-            <div className="callout" style={{ background: 'rgba(59, 130, 246, 0.08)', borderLeft: '4px solid #3b82f6', color: '#0f172a' }}>
+            <div className="callout" style={{ background: '#EFF6FF', borderLeft: '4px solid #2563EB', color: '#1A1915' }}>
               Análisis de cómo cambios en variables macroeconómicas afectan la conveniencia del prepago. Todos los escenarios mantienen fijos: monto prepago, frecuencia, multa y destino.
             </div>
 
             {/* Sensibilidad a Inflación */}
             <div className="section-title">Escenario 1: Variación de la Inflación Proyectada</div>
-            <div style={{ fontSize: 11, color: '#0f172a', marginBottom: 16, lineHeight: 1.6 }}>
+            <div style={{ fontSize: 11, color: '#1A1915', marginBottom: 16, lineHeight: 1.6 }}>
               La inflación es crítica en el análisis Fisher. Una inflación mayor erosiona el valor real del dinero que podrías dedicar al prepago.
             </div>
             <table className="data-table" style={{ marginBottom: 16 }}>
@@ -1673,7 +2214,7 @@
                       <td><strong>{s.label}</strong></td>
                       <td>{(costReal * 100).toFixed(2)}%</td>
                       <td>{(retReal * 100).toFixed(2)}%</td>
-                      <td style={{ color: delta > 0 ? '#10b981' : '#f43f5e', fontWeight: 700 }}>{(delta * 100).toFixed(2)}%</td>
+                      <td style={{ color: delta > 0 ? '#059669' : '#A32D2D', fontWeight: 700 }}>{(delta * 100).toFixed(2)}%</td>
                       <td style={{ fontSize: 10 }}>{delta > 0 ? '✓ Prepagar' : '✗ Invertir'}</td>
                     </tr>
                   );
@@ -1683,7 +2224,7 @@
 
             {/* Sensibilidad a Retorno de Inversión */}
             <div className="section-title">Escenario 2: Variación del Retorno de Inversión</div>
-            <div style={{ fontSize: 11, color: '#0f172a', marginBottom: 16, lineHeight: 1.6 }}>
+            <div style={{ fontSize: 11, color: '#1A1915', marginBottom: 16, lineHeight: 1.6 }}>
               Mayor rentabilidad en inversiones alternativas hace más atractivo no prepagar. Este análisis muestra el rango de sensibilidad.
             </div>
             <table className="data-table" style={{ marginBottom: 16 }}>
@@ -1708,7 +2249,7 @@
                       <td><strong>{s.label}</strong></td>
                       <td>{(costReal * 100).toFixed(2)}%</td>
                       <td>{(retReal * 100).toFixed(2)}%</td>
-                      <td style={{ color: delta > 0 ? '#10b981' : '#f43f5e', fontWeight: 700 }}>{(delta * 100).toFixed(2)}%</td>
+                      <td style={{ color: delta > 0 ? '#059669' : '#A32D2D', fontWeight: 700 }}>{(delta * 100).toFixed(2)}%</td>
                       <td style={{ fontSize: 10 }}>{delta > 0 ? '✓ Prepagar' : '✗ Invertir'}</td>
                     </tr>
                   );
@@ -1718,7 +2259,7 @@
 
             {/* Matriz de Sensibilidad */}
             <div className="section-title">Matriz de Decisión: Inflación vs Retorno Inversión</div>
-            <div style={{ fontSize: 11, color: '#0f172a', marginBottom: 12, lineHeight: 1.6 }}>
+            <div style={{ fontSize: 11, color: '#1A1915', marginBottom: 12, lineHeight: 1.6 }}>
               La matriz muestra para cada combinación de inflación y retorno, si la estrategia recomendada es prepagar (🟢) o invertir (🔴).
             </div>
             <table className="data-table" style={{ fontSize: 10 }}>
@@ -1741,7 +2282,7 @@
                       const retReal = ((1 + retDec) / (1 + infDec)) - 1;
                       const delta = costReal - retReal;
                       return (
-                        <td key={`${infRow.inf}-${retCol.ret}`} style={{ textAlign: 'center', background: delta > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', fontWeight: 700, color: delta > 0 ? '#10b981' : '#f43f5e' }}>
+                        <td key={`${infRow.inf}-${retCol.ret}`} style={{ textAlign: 'center', background: delta > 0 ? 'rgba(5,150,105,0.08)' : 'rgba(220,38,38,0.08)', fontWeight: 700, color: delta > 0 ? '#059669' : '#A32D2D' }}>
                           {delta > 0 ? '📊 P' : '📈 I'}
                         </td>
                       );
@@ -1777,16 +2318,16 @@
             <div className="rec-body">
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 16 }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Fundamentos</div>
-                  <div style={{ fontSize: 12, color: "#0f172a", lineHeight: 1.7 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#AEACA6", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Fundamentos</div>
+                  <div style={{ fontSize: 12, color: "#1A1915", lineHeight: 1.7 }}>
                     ① La TNA del {cr.tna}% actúa como <strong>retorno garantizado</strong> de cualquier prepago realizado.<br /><br />
                     ② La multa estimada de {fMon(sim.totalMultas)} se recupera velozmente gracias a la evasión de intereses compuestos.<br /><br />
                     ③ El ahorro neto de {fMon(ahorroNeto)} equivale a <strong>{(ahorroNeto / cuotaBase).toFixed(1)} meses de cuota base</strong> totalmente gratis.
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Pasos concretos</div>
-                  <div style={{ fontSize: 12, color: "#0f172a", lineHeight: 1.7 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#AEACA6", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Pasos concretos</div>
+                  <div style={{ fontSize: 12, color: "#1A1915", lineHeight: 1.7 }}>
                     ① <strong>Aviso:</strong> Notificar al banco con 10 días hábiles de anticipación.<br /><br />
                     ② <strong>Confirmar multa por escrito</strong> y solicitar tabla recalculada.<br /><br />
                     ③ <strong>Destino:</strong> {pr.destino === 'plazo' ? "Reducir plazo (recomendado para maximizar el ahorro total)." : "Reducir cuota (liberará flujo de caja mensual)."}<br /><br />
@@ -1835,15 +2376,15 @@
               <div className="page-number"><strong>09</strong>Disclaimer</div>
             </div>
 
-            <div style={{ background: 'rgba(244, 63, 94, 0.08)', padding: 14, borderLeft: '4px solid #f43f5e', borderRadius: 4, marginBottom: 20 }}>
+            <div style={{ background: 'rgba(220, 38, 38, 0.06)', padding: 14, borderLeft: '4px solid #f43f5e', borderRadius: 4, marginBottom: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#7f1d1d', marginBottom: 6 }}>⚠️ ADVERTENCIA IMPORTANTE</div>
-              <div style={{ fontSize: 10, color: '#0f172a', lineHeight: 1.6 }}>
+              <div style={{ fontSize: 10, color: '#1A1915', lineHeight: 1.6 }}>
                 Este documento es un <strong>análisis refrencial</strong> generado automáticamente por un simulador local. No constituye asesoría financiera, legal, ni de inversión de ningún tipo. Los cálculos están basados en supuestos simplificados y datos ingresados por el usuario. Verifique con su banco los términos exactos antes de cualquier operación.
               </div>
             </div>
 
             <div className="section-title">Limitaciones y supuestos</div>
-            <ul style={{ fontSize: 11, color: '#0f172a', lineHeight: 1.8, marginBottom: 16 }}>
+            <ul style={{ fontSize: 11, color: '#1A1915', lineHeight: 1.8, marginBottom: 16 }}>
               <li><strong>Sistema de amortización:</strong> Asume amortización francesa con compounding mensual. Otros sistemas pueden producir resultados distintos.</li>
               <li><strong>Tasa fija:</strong> El análisis asume que la TNA del crédito no varía. Créditos con tasas variables requieren recálculo.</li>
               <li><strong>Multa por prepago:</strong> Las multas están estimadas según el parámetro ingresado. Algunos bancos tienen cláusulas especiales.</li>
@@ -1853,7 +2394,7 @@
             </ul>
 
             <div className="section-title">Requisitos legales para prepago en Chile</div>
-            <div style={{ fontSize: 11, color: '#0f172a', lineHeight: 1.8, marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: '#1A1915', lineHeight: 1.8, marginBottom: 12 }}>
               <p><strong>Notificación anticipada:</strong> La ley exige notificar al banco con un mínimo de 10 días hábiles de anticipación.</p>
               <p><strong>Derechos del deudor:</strong> El Banco no puede cobrar comisión por prepago, pero sí puede cobrar multa si está estipulada en el contrato (hasta 3 meses de intereses en la mayoría de casos).</p>
               <p><strong>Transparencia bancaria:</strong> El banco debe entregar una tabla recalculada con las nuevas cuotas/plazos dentro de 5 días hábiles.</p>
@@ -1861,10 +2402,10 @@
             </div>
 
             <div className="section-title">Responsabilidades del usuario</div>
-            <div style={{ fontSize: 11, color: '#0f172a', lineHeight: 1.6, marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: '#1A1915', lineHeight: 1.6, marginBottom: 10 }}>
               El usuario acepta que:
             </div>
-            <ul style={{ fontSize: 11, color: '#0f172a', lineHeight: 1.8, marginBottom: 12 }}>
+            <ul style={{ fontSize: 11, color: '#1A1915', lineHeight: 1.8, marginBottom: 12 }}>
               <li>Ha revisado personal e independientemente este análisis.</li>
               <li>Los datos ingresados son exactos y están actualizados.</li>
               <li>Cualquier decisión financiera es de su exclusiva responsabilidad.</li>
@@ -1872,7 +2413,7 @@
               <li>No reclama al generador de este simulador por pérdidas derivadas del uso de este análisis.</li>
             </ul>
 
-            <div style={{ background: 'rgba(99, 102, 241, 0.08)', padding: 12, borderRadius: 4, fontSize: 10, color: '#0f172a', lineHeight: 1.6 }}>
+            <div style={{ background: 'rgba(37, 99, 235, 0.06)', padding: 12, borderRadius: 4, fontSize: 10, color: '#1A1915', lineHeight: 1.6 }}>
               <strong>Contacto y soporte:</strong> Este simulador es una herramienta educativa y de referencia. Para dudas técnicas con su crédito hipotecario, contacte a su ejecutivo bancario. Para análisis más profundos, consulte a profesionales certificados en finanzas personal.
             </div>
 
@@ -1893,6 +2434,7 @@
       const [cr, setCr] = useState(initialCr);
       const [pr, setPr] = useState({ monto: 100, frecuencia: "anual", mesInicio: 37, destino: "plazo" });
       const [tab, setTab] = useState("datos");
+      const [detalleVista, setDetalleVista] = useState("tabla");
       const [monedaTabla, setMonedaTabla] = useState("UF");
       const [valorUF, setValorUF] = useState(null);
       const [showPrintView, setShowPrintView] = useState(false);
@@ -1972,13 +2514,12 @@
       const [retornoInv, setRetornoInv] = useState(8.0);
 
       const tabs = [
-        { id: "datos", label: "Datos de Entrada", icon: "⚙️" },
-        { id: "resumen", label: "Dashboard Resumen", icon: "📊" },
-        { id: "grafico", label: "Gráfico Comparativo", icon: "📈" },
-        { id: "amortizacion", label: "Detalle Mensual", icon: "📋" },
-        { id: "escenario1", label: "Arbitraje de Tasas", icon: "⚡" },
-        { id: "escenario2", label: "Valoración & Riesgo", icon: "🎯" },
-        { id: "comparacion", label: "Evolución de Cuota", icon: "💰" }
+        { id: "datos", label: "Datos de Entrada", icon: React.createElement("svg", {width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:1.8,strokeLinecap:"round",strokeLinejoin:"round"}, React.createElement("path",{d:"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"}), React.createElement("circle",{cx:12,cy:12,r:3})) },
+        { id: "resumen", label: "Dashboard Resumen", icon: React.createElement("svg", {width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:1.8,strokeLinecap:"round",strokeLinejoin:"round"}, React.createElement("rect",{x:3,y:3,width:7,height:7,rx:1}), React.createElement("rect",{x:14,y:3,width:7,height:7,rx:1}), React.createElement("rect",{x:3,y:14,width:7,height:7,rx:1}), React.createElement("rect",{x:14,y:14,width:7,height:7,rx:1})) },
+        { id: "grafico", label: "Gráfico Comparativo", icon: React.createElement("svg", {width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:1.8,strokeLinecap:"round",strokeLinejoin:"round"}, React.createElement("line",{x1:18,y1:20,x2:18,y2:10}), React.createElement("line",{x1:12,y1:20,x2:12,y2:4}), React.createElement("line",{x1:6,y1:20,x2:6,y2:14})) },
+        { id: "amortizacion", label: "Detalle Mensual", icon: React.createElement("svg", {width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:1.8,strokeLinecap:"round",strokeLinejoin:"round"}, React.createElement("path",{d:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"}), React.createElement("polyline",{points:"14 2 14 8 20 8"}), React.createElement("line",{x1:16,y1:13,x2:8,y2:13}), React.createElement("line",{x1:16,y1:17,x2:8,y2:17})) },
+        { id: "escenario1", label: "Arbitraje de Tasas", icon: React.createElement("svg", {width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:1.8,strokeLinecap:"round",strokeLinejoin:"round"}, React.createElement("polyline",{points:"22 12 18 12 15 21 9 3 6 12 2 12"})) },
+        { id: "escenario2", label: "Valoración & Riesgo", icon: React.createElement("svg", {width:16,height:16,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:1.8,strokeLinecap:"round",strokeLinejoin:"round"}, React.createElement("path",{d:"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"})) },
       ];
 
       if (showPrintView) {
@@ -2011,10 +2552,8 @@
           <div className="app-container">
             <div className="sidebar">
               <div className="sidebar-header">
-                <h1 className="sidebar-title text-gradient">SIMULADOR HIPOTECARIO</h1>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, fontWeight: 500, marginBottom: 16 }}>
-                  Análisis de Prepago Inteligente
-                </div>
+                <h1 className="sidebar-title text-gradient" style={{ marginBottom: 16 }}>SIMULADOR PREPAGO</h1>
+                <SidebarClock />
               </div>
 
               <div className="sidebar-inputs" style={{ display: "none" }}>
@@ -2040,26 +2579,26 @@
                   onClick={() => setShowPrintView(true)}
                   style={{
                     width: "100%",
-                    padding: "14px",
-                    borderRadius: "10px",
-                    background: "rgba(99, 102, 241, 0.1)",
-                    color: "var(--accent-indigo)",
-                    border: "1px solid rgba(99, 102, 241, 0.2)",
-                    fontWeight: 700,
+                    padding: "10px 18px",
+                    borderRadius: "8px",
+                    background: "#1A1915",
+                    color: "#FAFAF9",
+                    border: "none",
+                    fontWeight: 500,
+                    fontSize: "15px",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "8px",
-                    transition: "all 0.2s"
+                    transition: "transform 0.1s",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.06)"
                   }}
                   onMouseOver={(e) => {
-                    e.currentTarget.style.background = "var(--accent-indigo)";
-                    e.currentTarget.style.color = "#fff";
+                    e.currentTarget.style.transform = "scale(0.97)";
                   }}
                   onMouseOut={(e) => {
-                    e.currentTarget.style.background = "rgba(99, 102, 241, 0.1)";
-                    e.currentTarget.style.color = "var(--accent-indigo)";
+                    e.currentTarget.style.transform = "scale(1)";
                   }}
                 >
                   <span style={{ fontSize: 16 }}>📄</span> Exportar Reporte
@@ -2069,13 +2608,12 @@
 
             {/* ── ÁREA PRINCIPAL (DERECHA) ── */}
             <div className="main-area">
-              <div className="main-content-scroll">
+              <div className="main-content-scroll" style={tab === "amortizacion" ? { overflow: "hidden" } : {}}>
 
                 {/* Banner Alerta movido dentro de la pestaña Resumen */}
 
                 {/* Visores Dinámicos */}
-                <div className="glass-card" style={{ height: "auto", minHeight: "500px", maxHeight: "800px", display: "flex", flexDirection: "column", padding: 0 }}>
-                  <div style={{ padding: "8px 12px", overflowY: "auto" }}>
+                  <div style={{ padding: "0", overflowY: "auto" }}>
                     {tab === "datos" && (
                       <div className="animate-fade grid-2" style={{ gap: 16 }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -2099,7 +2637,7 @@
 
                         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-                          <div className="glass-card" style={{ height: "fit-content", borderColor: "rgba(245, 158, 11, 0.2)", padding: 16 }}>
+                          <div className="glass-card" style={{ height: "fit-content", borderColor: "#DCC78E", padding: 16 }}>
                             <div className="section-title" style={{ color: "var(--accent-amber)" }}>
                               <span style={{ fontSize: 18 }}>💸</span> Tu Estrategia
                             </div>
@@ -2115,7 +2653,7 @@
                             </div>
                           </div>
 
-                          <div className="glass-card" style={{ borderColor: "rgba(168, 85, 247, 0.2)", padding: 16 }}>
+                          <div className="glass-card" style={{ borderColor: "#DDDAD3", padding: 16 }}>
                             <div className="section-title" style={{ color: "var(--accent-indigo)" }}>
                               <span style={{ fontSize: 18 }}>⚙️</span> Macroeconómicos
                             </div>
@@ -2131,64 +2669,102 @@
                       </div>
                     )}
 
-                    {tab === "resumen" && (
-                      <div className="animate-fade" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        {/* Banner Alerta (Ahora dentro de Resumen) */}
-                        {+pr.monto > 0 && (
-                          <div className={`alert-box ${conviene ? 'alert-success' : 'alert-warning'}`} style={{ flexShrink: 0, marginBottom: 16 }}>
-                            <div className="alert-icon">{conviene ? "🚀" : "⚠️"}</div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: 1 }}>
-                              <div className="alert-title" style={{ marginBottom: 0 }}>
-                                {conviene ? "Estrategia Rentable" : "El costo de prepago supera el ahorro"}
-                              </div>
-                              <div className="alert-desc">
-                                {conviene
-                                  ? `Estás ahorrando UF ${fmt(ahorroNeto)} netos (descontado el costo de prepago de UF ${fmt(sim.totalMultas)}).`
-                                  : `Tu ahorro en interés no alcanza a cubrir el costo de prepago de UF ${fmt(sim.totalMultas)}.`}
-                              </div>
+                    {tab === "resumen" && (() => {
+                      const costoTotalSinPrepago = (cuotaBase + (+cr.seguros)) * mesesRestantes;
+                      const porcentajeAmortizado = ((+cr.capital - saldoActual) / +cr.capital * 100);
+                      const roiPrepago = +pr.monto > 0 && sim.totalPrepagado > 0 ? (ahorroNeto / sim.totalPrepagado * 100) : 0;
+                      const terminoSinPrepago = new Date().getFullYear() + Math.ceil(mesesRestantes / 12);
+                      const terminoConPrepago = +pr.monto > 0 ? new Date().getFullYear() + Math.ceil(sim.mesesReales / 12) : terminoSinPrepago;
+                      const mesesPagados = +cr.mesesPagados;
+                      const plazoTotal = +cr.plazo;
+                      const progresoPlazo = (mesesPagados / plazoTotal * 100);
+
+                      return (
+                      <div className="animate-fade" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+                        {/* Hero: Progreso del crédito */}
+                        <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "20px 24px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: "#6B6860", textTransform: "uppercase", letterSpacing: "0.05em" }}>Progreso del Crédito</div>
+                              <div style={{ fontSize: 28, fontWeight: 800, color: "#1A1915", lineHeight: 1.2 }}>UF {fmt(saldoActual)} <span style={{ fontSize: 14, fontWeight: 500, color: "#6B6860" }}>de UF {fmt(+cr.capital)}</span></div>
+                              {valorUF && <div style={{ fontSize: 13, color: "#AEACA6", marginTop: 2 }}>{fmtCLP(saldoActual * valorUF)}</div>}
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontSize: 36, fontWeight: 800, color: "#185FA5", lineHeight: 1 }}>{porcentajeAmortizado.toFixed(1)}%</div>
+                              <div style={{ fontSize: 11, color: "#6B6860", marginTop: 4 }}>amortizado</div>
                             </div>
                           </div>
-                        )}
-                        <div>
-                          <h3 style={{ fontSize: 16, marginBottom: 16, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-indigo)" }}></div>
-                            Si no prepagas (Tu estado actual)
-                          </h3>
-                          <div className="grid-3">
-                            <Stat label="Saldo Actual" value={`UF ${fmt(saldoActual)}`} colorClass="indigo" />
-                            <Stat label="Saldo Actual CLP" value={valorUF ? fmtCLP(saldoActual * valorUF) : "Cargando..."} sub={valorUF ? `UF 1 = ${fmtCLP(valorUF)}` : ""} colorClass="indigo" />
-                            <Stat label="Intereses Restantes" value={`UF ${fmt(interesesBase)}`} colorClass="indigo" />
-                            <Stat label="Dividendo Total" value={`UF ${fmt(dividendoTotal)}`} sub="Incluye seguros" colorClass="indigo" />
-                            <Stat label="Dividendo Total CLP" value={valorUF ? fmtCLP(dividendoTotal * valorUF) : "Cargando..."} sub={valorUF ? `UF 1 = ${fmtCLP(valorUF)}` : ""} colorClass="indigo" />
-                            <Stat label="Tiempo Restante" value={fmtM(mesesRestantes)} sub={`(${mesesRestantes} meses)`} colorClass="indigo" />
+                          {/* Barra de progreso */}
+                          <div style={{ background: "#ECEAE6", borderRadius: 6, height: 10, overflow: "hidden", position: "relative" }}>
+                            <div style={{ width: `${porcentajeAmortizado}%`, height: "100%", background: "linear-gradient(90deg, #185FA5, #3B6D11)", borderRadius: 6, transition: "width 0.6s ease" }}></div>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11, color: "#AEACA6" }}>
+                            <span>Mes {mesesPagados} de {plazoTotal}</span>
+                            <span>Término sin prepago: {terminoSinPrepago}</span>
                           </div>
                         </div>
 
-                        <div style={{ height: 1, background: "var(--card-border)", width: "100%" }}></div>
+                        {/* Estado actual: 4 columnas compactas */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                          <Stat label="Dividendo Mensual" value={valorUF ? `${fmtCLP(dividendoTotal * valorUF)}` : `UF ${fmt(dividendoTotal)}`} sub={`UF ${fmt(dividendoTotal)}`} colorClass="indigo" />
+                          <Stat label="Tasa Anual (TNA)" value={`${(+cr.tna).toFixed(2)}%`} sub={`Mensual: ${(+cr.tna / 12).toFixed(3)}%`} colorClass="indigo" />
+                          <Stat label="Intereses por Pagar" value={`UF ${fmt(interesesBase)}`} sub={`${(interesesBase / saldoActual * 100).toFixed(0)}% del saldo`} colorClass="indigo" />
+                          <Stat label="Costo Total Restante" value={`UF ${fmt(costoTotalSinPrepago)}`} sub="Capital + interés + seguros" colorClass="indigo" />
+                        </div>
 
                         {+pr.monto > 0 && (
-                          <div>
-                            <h3 style={{ fontSize: 16, marginBottom: 16, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-emerald)" }}></div>
-                              Aplicando tu estrategia
-                            </h3>
-                            <div className="grid-3">
-                              <Stat label="Ahorro NETO Total" value={`UF ${fmt(ahorroNeto)}`} sub="Descontando multas" colorClass={ahorroNeto > 0 ? "emerald" : "rose"} big />
-                              {pr.destino === "plazo" ? (
-                                <React.Fragment>
-                                  <Stat label="Nuevo Plazo" value={fmtM(sim.mesesReales)} sub={`Original: ${fmtM(mesesRestantes)}`} colorClass="cyan" big />
-                                  <Stat label="Tiempo Ahorrado" value={fmtM(mesesAhorrados)} colorClass="emerald" big />
-                                </React.Fragment>
-                              ) : (
-                                <Stat label="Nuevo Dividendo" value={`UF ${fmt(sim.nuevaCuota + (+cr.seguros))}`} sub={`Te ahorras UF ${fmt(cuotaBase - sim.nuevaCuota)} / mes`} colorClass="cyan" big />
-                              )}
-                              <Stat label="Interés Ahorrado" value={`UF ${fmt(ahorroIntereses)}`} colorClass="emerald" />
-                              <Stat label="Total Prepagado" value={`UF ${fmt(sim.totalPrepagado)}`} sub={`En ${sim.prepagosRealizados} eventos`} colorClass="amber" />
-                            </div >
-                          </div >
+                          <React.Fragment>
+
+                            {/* Impacto: Hero cards lado a lado */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                              {/* Columna izquierda: Ahorro principal */}
+                              <div style={{ background: conviene ? "#F0FDF4" : "#FEF2F2", border: `0.5px solid ${conviene ? "#BBF7D0" : "#FECACA"}`, borderRadius: 12, padding: "24px 24px 28px", display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 192 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B6860", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Ahorro Neto Total</div>
+                                <div style={{ fontSize: 38, fontWeight: 800, color: conviene ? "#3B6D11" : "#A32D2D", lineHeight: 1.1 }}>{valorUF ? fmtCLP(ahorroNeto * valorUF) : `UF ${fmt(ahorroNeto)}`}</div>
+                                <div style={{ fontSize: 15, color: "#6B6860", marginTop: 6 }}>UF {fmt(ahorroNeto)}</div>
+                                <div style={{ fontSize: 13, color: "#AEACA6", marginTop: 8 }}>Interés ahorrado − multas − costo oportunidad</div>
+                              </div>
+
+                              {/* Columna derecha: Timeline */}
+                              <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, padding: "24px 24px 28px", minHeight: 192 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B6860", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
+                                  {pr.destino === "plazo" ? "Reducción de Plazo" : "Reducción de Cuota"}
+                                </div>
+                                {pr.destino === "plazo" ? (
+                                  <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
+                                    <div>
+                                      <div style={{ fontSize: 34, fontWeight: 800, color: "#185FA5", lineHeight: 1.1 }}>{fmtM(sim.mesesReales)}</div>
+                                      <div style={{ fontSize: 13, color: "#AEACA6", marginTop: 4 }}>nuevo plazo → {terminoConPrepago}</div>
+                                    </div>
+                                    <div style={{ width: 1, height: 50, background: "var(--color-border-tertiary)" }}></div>
+                                    <div>
+                                      <div style={{ fontSize: 26, fontWeight: 800, color: "#3B6D11", lineHeight: 1.1 }}>{fmtM(mesesAhorrados)}</div>
+                                      <div style={{ fontSize: 13, color: "#AEACA6", marginTop: 4 }}>ahorrados ({((mesesAhorrados / mesesRestantes) * 100).toFixed(0)}%)</div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <div style={{ fontSize: 34, fontWeight: 800, color: "#185FA5", lineHeight: 1.1 }}>UF {fmt(sim.nuevaCuota + (+cr.seguros))}</div>
+                                    <div style={{ fontSize: 15, color: "#6B6860", marginTop: 6 }}>nueva cuota ({((cuotaBase - sim.nuevaCuota) / cuotaBase * 100).toFixed(1)}% menos)</div>
+                                    {valorUF && <div style={{ fontSize: 14, color: "#AEACA6", marginTop: 4 }}>Ahorras {fmtCLP((cuotaBase - sim.nuevaCuota) * valorUF)} / mes</div>}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Métricas del prepago: 4 columnas */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                              <Stat label="Total Prepagado" value={`UF ${fmt(sim.totalPrepagado)}`} sub={`${sim.prepagosRealizados} eventos`} colorClass="amber" />
+                              <Stat label="Costo Multas" value={`UF ${fmt(sim.totalMultas)}`} sub={sim.totalPrepagado > 0 ? `${(sim.totalMultas / sim.totalPrepagado * 100).toFixed(1)}% del prepago` : ""} colorClass="rose" />
+                              <Stat label="Interés Ahorrado" value={`UF ${fmt(ahorroIntereses)}`} sub={`${((ahorroIntereses / interesesBase) * 100).toFixed(1)}% del total`} colorClass="emerald" />
+                              <Stat label="ROI Prepago" value={`${roiPrepago.toFixed(1)}%`} sub="Retorno / capital prepagado" colorClass={roiPrepago > 0 ? "emerald" : "rose"} />
+                            </div>
+                          </React.Fragment>
                         )}
-                      </div >
-                    )}
+                      </div>
+                      );
+                    })()}
 
                     {
                       tab === "grafico" && (
@@ -2200,17 +2776,17 @@
                                 <div style={{ color: "var(--accent-cyan)", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>Executive Summary</div>
                               </div>
                               <div style={{ fontSize: 14, color: "var(--text-main)", lineHeight: 1.6, fontFamily: "var(--font-body)", fontWeight: 400 }}>
-                                La estrategia de amortización propuesta acelera la reducción del saldo insoluto, mitigando la exposición a intereses prospectivos en un <strong style={{ color: "#fff", fontWeight: 700 }}>{((ahorroIntereses / interesesBase) * 100).toFixed(1)}%</strong>. Esto permite comparar el impacto diferencial entre reducir plazo y reducir cuota.
+                                La estrategia de amortización propuesta acelera la reducción del saldo insoluto, mitigando la exposición a intereses prospectivos en un <strong style={{ color: "#1A1915", fontWeight: 700 }}>{((ahorroIntereses / interesesBase) * 100).toFixed(1)}%</strong>. Esto permite comparar el impacto diferencial entre reducir plazo y reducir cuota.
                               </div>
                             </div>
                           )}
-                          <div className="glass-card" style={{ flex: 1, minHeight: "550px", display: "flex", flexDirection: "column" }}>
+                          <div className="glass-card" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                               <h3 style={{ fontSize: 15, color: "var(--text-main)", fontWeight: 700, letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ fontSize: 18 }}>📉</span> Proyección de Saldo Insoluto (UF)
                               </h3>
                             </div>
-                            <div style={{ position: "relative", flex: 1, minHeight: "450px" }}>
+                            <div style={{ position: "relative", flex: 1, minHeight: "calc(100vh - 350px)" }}>
                               <GraficoSaldo evolucionSin={sim.evolucionSin} evolucionPlazo={simPlazo.evolucionCon} evolucionCuota={simCuota.evolucionCon} mesesRestantes={mesesRestantes} saldoInicial={saldoActual} cr={cr} />
                             </div>
                           </div>
@@ -2221,7 +2797,7 @@
                     {
                       tab === "escenario1" && (
                         <div className="animate-fade">
-                          <h3 style={{ fontSize: 16, marginBottom: 8, color: "#fff", fontWeight: 600 }}>Punto de Equilibrio & Arbitraje</h3>
+                          <h3 style={{ fontSize: 16, marginBottom: 8, color: "#1A1915", fontWeight: 600 }}>Punto de Equilibrio & Arbitraje</h3>
                           <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 16 }}>Análisis de tasas de interés, inflación y costo de capital.</p>
                           <Escenario1 cr={cr} saldoActual={saldoActual} mesesRestantes={mesesRestantes} interesesBase={interesesBase} pr={pr} cuotaBase={cuotaBase} valorUF={valorUF} cae={cae} inflacion={inflacion} setInflacion={setInflacion} retornoInv={retornoInv} setRetornoInv={setRetornoInv} />
                         </div>
@@ -2231,7 +2807,7 @@
                     {
                       tab === "escenario2" && (
                         <div className="animate-fade">
-                          <h3 style={{ fontSize: 16, marginBottom: 8, color: "#fff", fontWeight: 600 }}>Valor Presente & Riesgo Estocástico</h3>
+                          <h3 style={{ fontSize: 16, marginBottom: 8, color: "#1A1915", fontWeight: 600 }}>Valor Presente & Riesgo Estocástico</h3>
                           <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 16 }}>Análisis de flujos descontados y simulación de volatilidad (Monte Carlo).</p>
                           <Escenario2 cr={cr} saldoActual={saldoActual} mesesRestantes={mesesRestantes} interesesBase={interesesBase} pr={pr} cuotaBase={cuotaBase} valorUF={valorUF} cae={cae} inflacion={inflacion} setInflacion={setInflacion} retornoInv={retornoInv} setRetornoInv={setRetornoInv} />
                         </div>
@@ -2242,11 +2818,38 @@
                       <div className="animate-fade">
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                           <div>
-                            <h3 style={{ fontSize: 16, color: "#fff", fontWeight: 600 }}>Tabla de Amortización Detallada</h3>
-                            <p style={{ fontSize: 14, color: "var(--text-muted)" }}>Desglose mensual bajo la estrategia de {pr.destino === "plazo" ? "Reducción de Plazo" : "Reducción de Cuota"}.</p>
+                            <h3 style={{ fontSize: 16, color: "#1A1915", fontWeight: 600 }}>
+                              {detalleVista === "tabla" ? "Tabla de Amortización Detallada" : "Evolución del Flujo de Caja"}
+                            </h3>
+                            <p style={{ fontSize: 14, color: "var(--text-muted)" }}>
+                              {detalleVista === "tabla"
+                                ? `Desglose mensual bajo la estrategia de ${pr.destino === "plazo" ? "Reducción de Plazo" : "Reducción de Cuota"}.`
+                                : "Compara cómo la cuota mensual disminuye progresivamente en el tiempo según tu estrategia."}
+                            </p>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ display: "flex", background: "rgba(0,0,0,0.3)", padding: 4, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)", height: "fit-content" }}>
+                            <div style={{ display: "flex", background: "#ECEAE6", padding: 4, borderRadius: 8, border: "1px solid #DDDAD3", height: "fit-content" }}>
+                              {[{ key: "tabla", label: "Tabla" }, { key: "grafico", label: "Gráfico" }].map(v => (
+                                <button
+                                  key={v.key}
+                                  onClick={() => setDetalleVista(v.key)}
+                                  style={{
+                                    padding: "6px 14px",
+                                    borderRadius: 6,
+                                    border: "none",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    transition: "all 0.2s",
+                                    background: detalleVista === v.key ? "#185FA5" : "transparent",
+                                    color: detalleVista === v.key ? "#fff" : "#6B6860"
+                                  }}
+                                >
+                                  {v.label}
+                                </button>
+                              ))}
+                            </div>
+                            <div style={{ display: "flex", background: "#ECEAE6", padding: 4, borderRadius: 8, border: "1px solid #DDDAD3", height: "fit-content" }}>
                               {["UF", "CLP"].map(m => (
                                 <button
                                   key={m}
@@ -2259,20 +2862,22 @@
                                     fontWeight: 800,
                                     cursor: "pointer",
                                     transition: "all 0.2s",
-                                    background: monedaTabla === m ? "var(--accent-indigo)" : "transparent",
-                                    color: monedaTabla === m ? "#fff" : "var(--text-muted)"
+                                    background: monedaTabla === m ? "#185FA5" : "transparent",
+                                    color: monedaTabla === m ? "#fff" : "#6B6860"
                                   }}
                                 >
                                   {m}
                                 </button>
                               ))}
                             </div>
-                            <div style={{ textAlign: "right", background: "rgba(59, 130, 246, 0.1)", padding: "12px 20px", borderRadius: 10, border: "1px solid rgba(59, 130, 246, 0.2)" }}>
-                                <div style={{ fontSize: 10, color: "var(--accent-cyan)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>Término Proyectado</div>
-                                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{new Date().getFullYear() + Math.floor((new Date().getMonth() + sim.mesesReales) / 12)}</div>
-                              </div>
+                            <div style={{ textAlign: "right", background: "#EDE8E0", padding: "12px 20px", borderRadius: 10, border: "1px solid #DDDAD3" }}>
+                              <div style={{ fontSize: 10, color: "var(--accent-cyan)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>Término Proyectado</div>
+                              <div style={{ fontSize: 20, fontWeight: 800, color: "#1A1915" }}>{new Date().getFullYear() + Math.floor((new Date().getMonth() + sim.mesesReales) / 12)}</div>
                             </div>
                           </div>
+                        </div>
+
+                        {detalleVista === "tabla" ? (
                           <TablaAmortizacion
                             detalle={sim.detalleMensual}
                             historial={historialPagado}
@@ -2283,22 +2888,14 @@
                             moneda={monedaTabla}
                             valorUF={valorUF}
                           />
-                        </div>
-                      )}
-
-                    {
-                      tab === "comparacion" && (
-                        <div className="animate-fade" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                          <h3 style={{ fontSize: 16, marginBottom: 8, color: "#fff", fontWeight: 600 }}>Evolución del Flujo de Caja</h3>
-                          <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 24 }}>Compara cómo la cuota mensual disminuye progresivamente en el tiempo según tu estrategia.</p>
-                          <div style={{ position: "relative", flex: 1, minHeight: 400 }}>
-                            <GraficoCuotas evolucionCuota={sim.evolucionCuota} cuotaBase={cuotaBase} destino={pr.destino} valorUF={valorUF} />
+                        ) : (
+                          <div style={{ position: "relative", minHeight: 500, height: "60vh" }}>
+                            <GraficoCuotas evolucionCuota={sim.evolucionCuota} cuotaBase={cuotaBase + (+cr.seguros)} destino={pr.destino} valorUF={valorUF} moneda={monedaTabla} />
                           </div>
-                        </div>
-                      )
-                    }
+                        )}
+                      </div>
+                    )}
                   </div >
-                </div >
               </div >
             </div>
           </div>
