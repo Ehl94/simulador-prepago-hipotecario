@@ -1,44 +1,86 @@
-# Simulador de Prepago Hipotecario
+# OptiHAUZ — Simulador de Prepago Hipotecario
 
-El **Simulador de Prepago Hipotecario** es una herramienta interactiva de grado profesional diseñada para ayudar a propietarios de viviendas y asesores financieros a evaluar el impacto real de realizar pagos anticipados en créditos hipotecarios. 
+OptiHAUZ es una herramienta interactiva de grado profesional diseñada para ayudar a propietarios de viviendas, inversionistas y asesores financieros a evaluar el impacto real de realizar pagos anticipados (prepagos) en créditos hipotecarios en Chile.
 
-A diferencia de los simuladores bancarios tradicionales, esta herramienta ofrece una visualización profunda del ahorro en intereses, la reducción de plazos y el comportamiento de la deuda bajo distintos escenarios económicos, permitiendo tomar decisiones informadas sobre la gestión del patrimonio y la deuda.
-
-## 🛠️ Características Principales
-
-- 💰 **Simulación Multiescenario**: Evalúa prepagos únicos, mensuales recurrentes, semestrales o anuales.
-- 📊 **Visualización Avanzada**: Gráficos interactivos que comparan el escenario original vs. el escenario con prepago.
-- 🎯 **Análisis de Costos Reales**: Incluye en el cálculo los costos de prepago (intereses de prepago), seguros asociados y gastos operacionales.
-- ⚙️ **Flexibilidad Total**: Ajuste dinámico de parámetros como tasa de interés (anual/mensual), plazo restante, monto y valor de la moneda.
-
-## 🚀 Uso y Navegación
-
-1.  **Configuración Lateral**: Utiliza el panel izquierdo para ingresar los datos base de tu crédito y el valor actual de la UF si aplica.
-2.  **Definición de Estrategia**: Ingresa el monto y la frecuencia de tus prepagos.
-3.  **Análisis de Impacto**: Revisa las pestañas de gráficos para ver la reducción de la deuda y el ahorro proyectado.
-4.  **Exportación**: Genera un informe profesional en PDF para guardar o compartir tus resultados.
-
-## 💻 Stack Tecnológico
-
--   **Frontend**: React 18 con Vite.
--   **Gráficos**: Recharts para visualizaciones dinámicas.
--   **Estilos**: CSS3 Moderno con un sistema de diseño Glassmorphism y variables dinámicas.
--   **Exportación**: html2pdf.js para la generación de reportes ejecutivos.
--   **Lógica**: JavaScript puro optimizado para cálculos financieros complejos.
+A diferencia de los simuladores bancarios tradicionales, esta herramienta ofrece una visualización profunda del ahorro en intereses, la reducción de plazos y el comportamiento de la deuda bajo distintos escenarios económicos, integrando variables complejas como la inflación (UF), el costo impositivo y el análisis estocástico.
 
 ---
 
-## 📜 Log de Cambios Recientes
+## 🚀 Características Principales
 
-### Versión 4.0 (Actual)
--   **Interfaz Renovada**: Implementación de navegación sidebar para mejorar el espacio de trabajo.
--   **Soporte UF/CLP**: Conversión automática y visualización dinámica entre Unidades de Fomento y Pesos Chilenos.
--   **Nuevos Modelos de Análisis**:
-    -   *Dinámica de Deuda*: Desglose pormenorizado de la amortización.
-    -   *Arbitraje de Tasas (Fisher)*: Evaluación de rentabilidad comparada.
-    -   *Valor Presente Neto (VPN)*: Análisis financiero del ahorro a valor actual.
-    -   *Simulación Monte Carlo*: Proyecciones con variabilidad de tasas.
--   **Reportes MCK**: Nuevo generador de PDFs con diseño premium estilo consultoría McKinsey.
+*   🎛️ **Controles Interactivos Premium (Fase 4 y 6)**: Sliders homogéneos de `42px` y inputs numéricos sincronizados bidireccionalmente. Incluye selector de fecha de inicio de crédito sincronizado con los meses transcurridos y etiquetas dinámicas del mínimo legal chileno (5% del saldo insoluto).
+*   💵 **Soporte UF/CLP Dinámico**: Conversión automática y visualización en tiempo real de valores en Pesos Chilenos (CLP) basados en el valor diario de la UF.
+*   🔍 **Análisis de Arbitraje de Tasas (Escenario 1)**: Criterio de Fisher Modificado para calcular la inflación exacta de equilibrio (*break-even* $\pi^*$) donde amortizar deuda equivale a invertir en pesos (paridad nominal vs. real). Cuenta con un gráfico de barras comparativo (`RateBarChart`).
+*   ⚖️ **Valoración & Riesgo Estocástico (Escenario 2)**:
+    *   **Valor Presente Neto (VPN)**: Descuenta los dividendos futuros a valor de hoy utilizando tu tasa de inversión alternativa como costo de oportunidad del capital.
+    *   **Simulación Monte Carlo Estabilizada**: Proyección determinista basada en sigmoides ante estrés de mercado (volatilidad $\sigma$), graficando el espectro de ahorros P10-P90 y un indicador de aguja semicircular (`ProbabilityGauge`) interactivo.
+*   📈 **Evolución Detallada**: Gráficos interactivos de saldos y dividendos construidos sobre **Chart.js** y **react-chartjs-2**, junto con una tabla completa de amortización mensual (conmutador UF/CLP).
+*   💼 **Beneficio Tributario (Art. 55 bis)**: Módulo integrado que calcula la rebaja de impuestos sobre los intereses pagados, ajustándose según tramos de renta bruta y límites en Unidades Tributarias Anuales (UTA).
+*   📄 **Reporte PDF McKinsey Style**: Generador automático de reportes ejecutivos en PDF listos para imprimir, estructurados con la estética corporativa de consultoría estratégica.
+
+---
+
+## 🛠️ Stack Tecnológico y Arquitectura
+
+La aplicación está diseñada bajo una arquitectura **Zero-Build/Serverless**, cargando de forma directa en el navegador sin necesidad de herramientas de compilación pesadas como Webpack o Vite en desarrollo local:
+
+*   **Core**: React 18 (Carga directa vía unpkg CDN).
+*   **Transpilador**: Babel Standalone (Para compilación JIT de JSX en el navegador).
+*   **Gráficos**: Chart.js + react-chartjs-2.
+*   **Reportes**: html2pdf.js (Exportación local del DOM a PDF).
+*   **Diseño Visual**: Estilos CSS Vanilla con variables dinámicas (`:root`) y diseño *Warm Neutral / Glassmorphism* de alto contraste.
+*   **Modularización (Fase 1)**: Código fragmentado en responsabilidades únicas para evitar bugs y optimizar el mantenimiento del estado React.
+
+---
+
+## 📁 Estructura del Proyecto
+
+```bash
+simulador-prepago-hipotecario/
+├── index.html              # Shell HTML mínimo, imports CDN y carga modular de scripts con cache-busting.
+├── css/
+│   ├── app.css             # Estilos de la aplicación, variables y controles premium.
+│   └── pdf-report.css      # Estilos del reporte PDF estilo McKinsey.
+├── js/
+│   ├── app.js              # Inicialización de React, orquestación del estado unificado (Fase 2) y vistas.
+│   ├── financial_logic.js  # Motor matemático (amortización francesa, Fisher, VPN, tributario).
+│   ├── components.js       # Componentes atómicos de UI (Input, Select, SliderInput, Gráficos visuales).
+│   ├── escenarios.js       # Módulos de análisis "Arbitraje de Tasas" y "Valoración & Riesgo".
+│   ├── charts.js           # Wrappers de gráficos dinámicos de Chart.js.
+│   ├── tabla.js            # Componente de la tabla de amortización detallada.
+│   ├── pdf-report.js       # Estructura del PDF McKinsey para impresión.
+│   └── globals.js          # Helpers de formateo, colores y variables globales.
+└── backups/                # Backups de seguridad del proyecto.
+```
+
+---
+
+## 💻 Instalación y Uso Local
+
+Al no requerir compilación previa de Node.js, puedes levantar el proyecto instantáneamente con cualquier servidor estático local:
+
+1.  Clona el repositorio:
+    ```bash
+    git clone https://github.com/Ehl94/simulador-prepago-hipotecario.git
+    cd simulador-prepago-hipotecario
+    ```
+2.  Levanta un servidor web estático (ejemplo con Python):
+    ```bash
+    python -m http.server 8080
+    ```
+3.  Abre tu navegador e ingresa a:
+    `http://localhost:8080`
+
+---
+
+## 📜 Log de Cambios Recientes (Refactorización Completa)
+
+### Versión 5.0 (Actual)
+*   **Desacoplamiento Estético e Inyección CSS**: Eliminación de estilos inline ad-hoc y unificación bajo clases semánticas (`.segmented-control`, `.decision-box`, `.detail-row-group`, etc.).
+*   **Sliders Premium & Homogeneización**: Sincronización y altura unificada de todos los inputs a `42px`. Sliders nativos estilizados con hit-boxes ergonómicos de `32px`.
+*   **Monte Carlo Determinista**: Eliminación de números pseudoaleatorios en el render para prevenir parpadeos en React. Probabilidades estables basadas en sigmoides normales.
+*   **Modularización Extrema**: División del archivo index monolítico de 3,500+ líneas en archivos `.js` y `.css` independientes expuestos mediante namespaces seguros en el objeto global `window`.
+*   **Centralización Matemática**: Fórmulas de Fisher y VPN unificadas en `js/financial_logic.js` para asegurar consistencia perfecta entre la interfaz y el PDF impreso.
 
 ---
 
