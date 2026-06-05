@@ -1,0 +1,507 @@
+/* ── PDF Design Tokens ─────────────────────────────────────── */
+:root {
+  --pdf-navy:    #002060;
+  --pdf-blue:    #1F4E79;
+  --pdf-blue2:   #1D4ED8;
+  --pdf-green:   #107C41;
+  --pdf-red:     #C00000;
+  --pdf-amber:   #D97706;
+  --pdf-text:    #0F172A;
+  --pdf-muted:   #475569;
+  --pdf-lighter: #94A3B8;
+  --pdf-border:  #CBD5E1;
+  --pdf-bg-light:#F8FAFC;
+  --pdf-bg-alt:  #F1F5F9;
+}
+
+/* ── Viewport wrapper (screen preview) ────────────────────── */
+.pdf-report-container {
+  background: #D4D8E0;
+  padding: 32px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--pdf-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Page base ─────────────────────────────────────────────── */
+.page {
+  background: #FFFFFF;
+  width: 210mm;
+  min-height: 297mm;
+  max-width: 210mm;
+  margin: 0 auto 28px;
+  position: relative;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+  page-break-after: always;
+  break-after: page;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PORTADA
+   ═══════════════════════════════════════════════════════════ */
+.cover-top-bar {
+  height: 10px;
+  background: var(--pdf-navy);
+  width: 100%;
+  flex-shrink: 0;
+}
+.cover-body {
+  flex: 1;
+  padding: 56px 56px 32px;
+  display: flex;
+  flex-direction: column;
+}
+.cover-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--pdf-lighter);
+  margin-bottom: 28px;
+}
+.cover-title {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--pdf-navy);
+  letter-spacing: -0.025em;
+  margin-bottom: 20px;
+}
+.cover-title span { color: var(--pdf-blue2); }
+
+.cover-subtitle {
+  font-size: 13px;
+  color: var(--pdf-muted);
+  line-height: 1.75;
+  max-width: 490px;
+  margin-bottom: 36px;
+  font-weight: 400;
+}
+.cover-divider {
+  height: 2px;
+  background: linear-gradient(90deg, var(--pdf-navy) 0%, var(--pdf-blue2) 40%, transparent 100%);
+  margin-bottom: 36px;
+}
+.cover-hero-stat {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+.cover-stat-box {
+  flex: 1;
+  padding: 22px 20px;
+  border: 1px solid var(--pdf-border);
+  border-top: 4px solid var(--pdf-navy);
+  background: var(--pdf-bg-light);
+}
+.cover-stat-box.green { border-top-color: var(--pdf-green); }
+.cover-stat-box label {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pdf-lighter);
+  margin-bottom: 10px;
+}
+.cover-stat-box .val {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--pdf-navy);
+  line-height: 1;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+.cover-stat-box.green .val { color: var(--pdf-green); }
+.cover-stat-box .sub {
+  font-size: 10px;
+  color: var(--pdf-lighter);
+}
+.cover-meta {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid var(--pdf-border);
+  padding-top: 24px;
+  margin-top: auto;
+}
+.cover-meta-item {
+  flex: 1;
+  padding-right: 20px;
+  border-right: 1px solid var(--pdf-border);
+  margin-right: 20px;
+}
+.cover-meta-item:last-child { border-right: none; margin-right: 0; }
+.cover-meta-item label {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pdf-lighter);
+  margin-bottom: 5px;
+}
+.cover-meta-item span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pdf-text);
+}
+.cover-footer {
+  background: var(--pdf-navy);
+  padding: 15px 56px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.cover-footer-brand {
+  font-size: 11px;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.cover-footer-conf {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   INNER PAGES
+   ═══════════════════════════════════════════════════════════ */
+.inner-page {
+  padding: 40px 48px 72px;
+}
+
+/* ── Page Header ─────────────────────────────────────────────  */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-bottom: 14px;
+  border-bottom: 2.5px solid var(--pdf-navy);
+  margin-bottom: 22px;
+}
+.page-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--pdf-lighter);
+  margin-bottom: 4px;
+}
+.page-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--pdf-navy);
+  letter-spacing: -0.015em;
+}
+.page-number {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--pdf-lighter);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.page-number strong {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--pdf-navy);
+  line-height: 1;
+}
+
+/* ── Section Title ───────────────────────────────────────────  */
+.inner-page .section-title {
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--pdf-blue) !important;
+  border-bottom: 1px solid var(--pdf-border) !important;
+  padding-bottom: 6px !important;
+  margin: 18px 0 12px !important;
+  background: none !important;
+  -webkit-text-fill-color: unset !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  display: block !important;
+}
+
+/* ── Page Footer ─────────────────────────────────────────────  */
+.page-footer {
+  position: absolute;
+  bottom: 24px;
+  left: 48px;
+  right: 48px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pdf-border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--pdf-lighter);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   KPI BOXES
+   ═══════════════════════════════════════════════════════════ */
+.kpi-grid   { display: grid; gap: 8px; margin-bottom: 10px; }
+.kpi-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.kpi-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+.kpi-box {
+  padding: 14px 16px;
+  background: var(--pdf-bg-light);
+  border: 1px solid var(--pdf-border);
+  border-top: 3px solid var(--pdf-border);
+}
+.kpi-box.navy  { border-top-color: var(--pdf-navy);  background: #EEF2F7; }
+.kpi-box.red   { border-top-color: var(--pdf-red);   background: #FEF2F2; }
+.kpi-box.green { border-top-color: var(--pdf-green); background: #F0FDF4; }
+
+.kpi-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--pdf-muted);
+  margin-bottom: 6px;
+}
+.kpi-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--pdf-navy);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+.kpi-box.navy  .kpi-value { color: var(--pdf-navy);  }
+.kpi-box.red   .kpi-value { color: var(--pdf-red);   }
+.kpi-box.green .kpi-value { color: var(--pdf-green); }
+.kpi-sub { font-size: 9px; color: var(--pdf-lighter); }
+
+/* ══════════════════════════════════════════════════════════════
+   CALLOUT BOXES
+   ═══════════════════════════════════════════════════════════ */
+.callout {
+  background: #F0F4FF;
+  border-left: 4px solid var(--pdf-blue2);
+  padding: 13px 18px;
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--pdf-text);
+  margin-bottom: 16px;
+}
+.callout.green { background: #F0FDF4; border-left-color: var(--pdf-green); }
+.callout.red   { background: #FEF2F2; border-left-color: var(--pdf-red);   }
+
+/* ══════════════════════════════════════════════════════════════
+   INSIGHT BOXES (3-col)
+   ═══════════════════════════════════════════════════════════ */
+.three-col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.insight-box {
+  background: var(--pdf-bg-light);
+  border: 1px solid var(--pdf-border);
+  border-top: 2px solid var(--pdf-blue2);
+  padding: 14px 14px 14px;
+  position: relative;
+  margin-top: 10px;
+}
+.insight-box::before {
+  content: attr(data-n);
+  position: absolute;
+  top: -11px;
+  left: 12px;
+  background: var(--pdf-blue2);
+  color: white;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 8px;
+  letter-spacing: 0.05em;
+}
+.insight-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pdf-navy);
+  margin-bottom: 7px;
+  margin-top: 4px;
+}
+.insight-body {
+  font-size: 10.5px;
+  color: var(--pdf-muted);
+  line-height: 1.65;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DATA TABLES — McKinsey Style
+   ═══════════════════════════════════════════════════════════ */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+}
+.data-table thead tr { background: var(--pdf-navy); }
+.data-table thead th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #FFFFFF;
+  border: none;
+}
+.data-table tbody tr { border-bottom: 1px solid var(--pdf-border); }
+.data-table tbody tr:nth-child(even) { background: var(--pdf-bg-alt); }
+.data-table tbody td {
+  padding: 9px 12px;
+  color: var(--pdf-text);
+  font-size: 11px;
+  vertical-align: middle;
+}
+.data-table tbody tr.highlight-row {
+  background: rgba(29, 78, 216, 0.06);
+  border-left: 3px solid var(--pdf-blue2);
+  font-weight: 600;
+}
+.tag-blue   { color: var(--pdf-blue2); font-weight: 700; }
+.tag-green  { color: var(--pdf-green); font-weight: 700; }
+.tag-red    { color: var(--pdf-red);   font-weight: 700; }
+
+/* ══════════════════════════════════════════════════════════════
+   BAR CHART ROWS (Escenarios)
+   ═══════════════════════════════════════════════════════════ */
+.bar-row   { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+.bar-label { width: 60px; font-size: 10px; font-weight: 600; color: var(--pdf-muted); flex-shrink: 0; text-align: right; }
+.bar-track {
+  flex: 1; height: 14px;
+  background: var(--pdf-bg-alt);
+  border: 1px solid var(--pdf-border);
+  overflow: hidden;
+}
+.bar-fill  { height: 100%; background: var(--pdf-blue2); }
+.bar-val   { width: 76px; font-size: 10px; font-weight: 700; color: var(--pdf-navy); text-align: right; flex-shrink: 0; }
+
+/* ══════════════════════════════════════════════════════════════
+   CHART WRAPPER
+   ═══════════════════════════════════════════════════════════ */
+.chart-wrap {
+  border: 1px solid var(--pdf-border);
+  background: var(--pdf-bg-light);
+  padding: 12px;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RECOMENDACIÓN
+   ═══════════════════════════════════════════════════════════ */
+.rec-header {
+  background: var(--pdf-navy);
+  color: white;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+.rec-header .label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 8px;
+}
+.rec-header .title {
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+  line-height: 1.4;
+}
+.rec-body {
+  background: var(--pdf-bg-light);
+  border: 1px solid var(--pdf-border);
+  padding: 20px 24px;
+  margin-bottom: 14px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DISCLAIMER
+   ═══════════════════════════════════════════════════════════ */
+.disclaimer {
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  padding: 13px 18px;
+  font-size: 10px;
+  color: #78350F;
+  line-height: 1.65;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   NO-PRINT (button to return from PDF view)
+   ═══════════════════════════════════════════════════════════ */
+.no-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--pdf-navy);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 24px;
+  letter-spacing: 0.02em;
+}
+.no-print:hover { background: var(--pdf-blue); }
+
+/* ══════════════════════════════════════════════════════════════
+   @MEDIA PRINT — A4, exact colors, page breaks
+   ═══════════════════════════════════════════════════════════ */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  html, body {
+    background: white !important;
+    height: auto !important;
+    overflow: auto !important;
+  }
+  body::before { display: none !important; }
+  #root { height: auto !important; overflow: visible !important; }
+  .no-print, .app-container, #error-log { display: none !important; }
+
+  .pdf-report-container {
+    background: white !important;
+    padding: 0 !important;
+  }
+  .page {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  .page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+  .inner-page { padding-bottom: 80px !important; }
+}

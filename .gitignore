@@ -23,6 +23,10 @@ __pycache__/
 *$py.class
 
 # Backups
+backups/
 backup_pre_pdf/
 v2.0_backup/
 Version 1.0/
+
+# Claude
+.claude/

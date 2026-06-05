@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Fondos — Funeraria Warm Neutral */
+  /* Fondos — Warm Neutral */
   --bg-main: #FAFAF9;
   --bg-sidebar: #FAFAF9;
   --bg-card: #FFFFFF;
@@ -15,7 +15,7 @@
   --text-secondary: #6B6860;
   --text-muted: #AEACA6;
 
-  /* Acentos — Funeraria palette */
+  /* Acentos — Warm Neutral palette */
   --accent-cyan: #185FA5;
   --accent-emerald: #3B6D11;
   --accent-rose: #A32D2D;
@@ -34,7 +34,7 @@
 
   --bg-dark: #FAFAF9;
 
-  /* Design tokens — Funeraria system */
+  /* Design tokens — Warm Neutral system */
   --color-background-primary: #FAFAF9;
   --color-background-secondary: #F3F2F0;
   --color-background-tertiary: #ECEAE6;
@@ -83,7 +83,7 @@ body::before {
   overflow: hidden;
 }
 
-/* Scrollbar — Funeraria style */
+/* Scrollbar — Warm Neutral style */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -128,7 +128,7 @@ h3 {
 }
 
 /* ═══════════════════════════════════════════════
-   SIDEBAR — Funeraria style (light, clean)
+   SIDEBAR — Warm Neutral style (light, clean)
    ═══════════════════════════════════════════════ */
 .sidebar {
   width: 320px;
@@ -250,7 +250,7 @@ h3 {
 }
 
 /* ═══════════════════════════════════════════════
-   CARDS — Funeraria warm style
+   CARDS — Warm Neutral style
    ═══════════════════════════════════════════════ */
 .glass-card {
   background: var(--color-background-primary);
@@ -327,7 +327,7 @@ h3 {
 }
 
 /* ═══════════════════════════════════════════════
-   INPUTS & FORMS — Funeraria style
+   INPUTS & FORMS — Warm Neutral style
    ═══════════════════════════════════════════════ */
 .input-group {
   display: flex;
@@ -387,6 +387,7 @@ h3 {
   font-family: var(--font-body);
   outline: none;
   width: 100%;
+  height: 100%;
 }
 
 select.styled-input {
@@ -519,7 +520,7 @@ select.styled-input option {
 }
 
 /* ═══════════════════════════════════════════════
-   ALERT BOX — Funeraria toast style
+   ALERT BOX — Warm Neutral toast style
    ═══════════════════════════════════════════════ */
 .alert-box {
   display: flex;
@@ -621,7 +622,7 @@ select.styled-input option {
 }
 
 /* ═══════════════════════════════════════════════
-   RESPONSIVE — Funeraria breakpoints
+   RESPONSIVE — Warm Neutral breakpoints
    ═══════════════════════════════════════════════ */
 @media (max-height: 900px) {
   .app-container {
@@ -705,3 +706,319 @@ select.styled-input option {
     padding: 16px;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   NUEVAS CLASES DE SANEAMIENTO FASE 3
+   ═══════════════════════════════════════════════ */
+
+/* Bloques de decisión y veredictos */
+.decision-box {
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: auto;
+}
+.decision-box.positive {
+  background: rgba(59, 109, 17, 0.08);
+  border: 1px solid rgba(59, 109, 17, 0.2);
+  color: var(--accent-emerald);
+}
+.decision-box.neutral {
+  background: rgba(186, 117, 23, 0.08);
+  border: 1px solid rgba(186, 117, 23, 0.2);
+  color: var(--accent-amber);
+}
+.decision-box.negative {
+  background: rgba(163, 45, 45, 0.08);
+  border: 1px solid rgba(163, 45, 45, 0.2);
+  color: var(--accent-rose);
+}
+.decision-box.centered {
+  text-align: center;
+}
+.decision-box-title {
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+.decision-box-desc {
+  font-size: 12px;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+/* KPIs y mini-tarjetas en análisis de escenarios */
+.kpi-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.kpi-card-mini {
+  background: var(--color-background-secondary);
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid var(--color-border-tertiary);
+}
+.kpi-card-mini.positive {
+  background: rgba(59, 109, 17, 0.08);
+  border-color: rgba(59, 109, 17, 0.2);
+}
+.kpi-card-mini.negative {
+  background: rgba(163, 45, 45, 0.08);
+  border-color: rgba(163, 45, 45, 0.2);
+}
+.kpi-card-mini-label {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.kpi-card-mini-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+.kpi-card-mini-value.cyan {
+  color: var(--accent-cyan);
+}
+.kpi-card-mini-value.emerald {
+  color: var(--accent-emerald);
+}
+.kpi-card-mini-value.rose {
+  color: var(--accent-rose);
+}
+
+/* Filas de detalles financieros apiladas */
+.detail-row-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-tertiary);
+}
+.detail-row-item {
+  display: flex;
+  justify-content: space-between;
+  background: var(--color-background-secondary);
+  padding: 12px;
+}
+.detail-row-item:not(:last-child) {
+  border-bottom: 1px solid var(--color-border-tertiary);
+}
+.detail-row-label {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.detail-row-sublabel {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+.detail-row-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  align-self: center;
+}
+
+/* Tarjeta destacada con valor gigante */
+.highlight-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  background: var(--color-background-secondary);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-tertiary);
+  flex-wrap: wrap;
+}
+.highlight-card-value {
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent-amber);
+}
+.highlight-card-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Espectro y rangos de Monte Carlo */
+.spectrum-card {
+  background: var(--color-background-secondary);
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: auto;
+  border: 1px solid var(--color-border-tertiary);
+}
+.spectrum-card-title {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.spectrum-card-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.spectrum-card-val-box {
+  min-width: 80px;
+}
+.spectrum-card-val-box.left {
+  text-align: right;
+}
+.spectrum-card-val-box.right {
+  text-align: left;
+}
+.spectrum-card-num {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.spectrum-card-lbl {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+.spectrum-card-bar-wrapper {
+  flex: 1;
+  position: relative;
+}
+.spectrum-card-bar-bg {
+  height: 6px;
+  background: var(--color-border-secondary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.spectrum-card-bar-fill {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(186, 117, 23, 0.15), rgba(186, 117, 23, 0.6), rgba(186, 117, 23, 0.15));
+  border-radius: 3px;
+  opacity: 0.8;
+}
+.spectrum-card-footer {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-top: 12px;
+  text-align: center;
+  font-style: italic;
+}
+
+/* ═══════════════════════════════════════════════
+   CUSTOM WIDGET STYLING — Premium Controls
+   ═══════════════════════════════════════════════ */
+
+/* Segmented Control Widget */
+.segmented-control {
+  display: flex;
+  background: var(--color-background-secondary);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-secondary);
+  height: fit-content;
+  align-items: center;
+}
+
+.segmented-control-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+  font-family: var(--font-body);
+}
+
+.segmented-control-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.segmented-control-btn.active {
+  background: var(--accent-cyan);
+  color: #FFFFFF;
+}
+
+/* Custom Range Slider */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: transparent;
+  height: 32px; /* Hits target box */
+  display: flex;
+  align-items: center;
+}
+
+input[type="range"]:focus {
+  outline: none;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  cursor: pointer;
+  background: var(--color-border-secondary);
+  border-radius: 3px;
+  border: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -5px; /* (track_height/2) - (thumb_height/2) = 3 - 8 = -5 */
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.1s ease, background-color 0.2s ease;
+  border: none;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  background: #0d4a86; /* Darker cyan */
+}
+
+/* Firefox */
+input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 6px;
+  cursor: pointer;
+  background: var(--color-border-secondary);
+  border-radius: 3px;
+  border: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.1s ease, background-color 0.2s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  background: #0d4a86;
+}
+

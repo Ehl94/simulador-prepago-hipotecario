@@ -228,6 +228,61 @@ const FinancialLogic = {
             });
         }
         return historial;
+    },
+
+    findOptimalAmount: (saldoActual, tna, mesesRestantes, frecuencia, mesInicio, destino, cuotaBase, costoPrepago, seguros) => {
+        const minPrepago = Math.ceil(saldoActual * 0.05);
+        let bestRoi = -Infinity, bestAmount = minPrepago;
+        const interesesBase = FinancialLogic.calcularInteresesTotales(saldoActual, tna, mesesRestantes);
+        
+        for (let m = minPrepago; m <= Math.min(saldoActual * 0.5, 2000); m += 10) {
+            const s = FinancialLogic.simularPrepago(saldoActual, tna, mesesRestantes, m, frecuencia, mesInicio, destino, cuotaBase, costoPrepago, seguros);
+            const roi = s.totalPrepagado > 0 ? ((interesesBase - s.totalIntereses - s.totalMultas) / s.totalPrepagado) * 100 : 0;
+            if (roi > bestRoi) { bestRoi = roi; bestAmount = m; }
+        }
+        const lo = Math.max(minPrepago, bestAmount - 15), hi = Math.min(saldoActual, bestAmount + 15);
+        for (let m = lo; m <= hi; m++) {
+            const s = FinancialLogic.simularPrepago(saldoActual, tna, mesesRestantes, m, frecuencia, mesInicio, destino, cuotaBase, costoPrepago, seguros);
+            const roi = s.totalPrepagado > 0 ? ((interesesBase - s.totalIntereses - s.totalMultas) / s.totalPrepagado) * 100 : 0;
+            if (roi > bestRoi) { bestRoi = roi; bestAmount = m; }
+        }
+        return bestAmount;
+    },
+
+    calcularFisher: (tna, inflacion, retornoInv) => {
+        const tnaDecimal = tna / 100;
+        const infDecimal = inflacion / 100;
+        const retDecimal = retornoInv / 100;
+
+        const costoNominal = ((1 + tnaDecimal) * (1 + infDecimal)) - 1;
+        const deltaFisher = costoNominal - retDecimal;
+        const breakEvenInflacion = ((1 + retDecimal) / (1 + tnaDecimal)) - 1;
+
+        return {
+            costoNominal,
+            deltaFisher,
+            breakEvenInflacion
+        };
+    },
+
+    calcularVPN: (saldoActual, tna, mesesRestantes, montoPrepago, frecuencia, mesInicio, destino, cuotaBase, costoPrepago, seguros, retornoInv, simResult = null) => {
+        const { tasaMensual, simularPrepago } = FinancialLogic;
+        const sim = simResult || simularPrepago(saldoActual, tna, mesesRestantes, montoPrepago, frecuencia, mesInicio, destino, cuotaBase, costoPrepago, seguros);
+
+        const rhoMensual = tasaMensual(retornoInv);
+        const flujoMensual = cuotaBase + seguros;
+        const calcPV = (flujo, n, r) => r === 0 ? flujo * n : flujo * (1 - Math.pow(1 + r, -n)) / r;
+
+        const vpContrato = calcPV(flujoMensual, mesesRestantes, rhoMensual);
+        const vpPrepago = sim.totalPrepagado + sim.totalMultas + calcPV(sim.nuevaCuota + seguros, sim.mesesReales, rhoMensual);
+        const ahorroVPN = vpContrato - vpPrepago;
+
+        return {
+            vpContrato,
+            vpPrepago,
+            ahorroVPN,
+            convieneVPN: ahorroVPN > 0
+        };
     }
 };
 
