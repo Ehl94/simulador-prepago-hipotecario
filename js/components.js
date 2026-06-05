@@ -128,34 +128,123 @@ const RateBarChart = ({ label1, value1, label2, value2 }) => {
 
 const ProbabilityGauge = ({ probability }) => {
   const percentage = Math.round(probability * 100);
+  
+  // Interpolación de color para el texto y brillo
   const hue = probability * 120; // 0 red to 120 green
-  const color = `hsl(${hue}, 70%, 40%)`;
+  const color = `hsl(${hue}, 75%, 40%)`;
   
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 12, background: "var(--color-background-secondary)", borderRadius: 8, border: "1px solid var(--color-border-tertiary)", width: "100%" }}>
-      <div style={{ position: "relative", width: 140, height: 75, overflow: "hidden", display: "flex", justifyContent: "center" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "16px 12px", background: "var(--color-background-primary)", borderRadius: 12, border: "1px solid var(--color-border-tertiary)", width: "100%", boxShadow: "var(--shadow-sm)" }}>
+      <div style={{ position: "relative", width: 140, height: 78, overflow: "hidden", display: "flex", justifyContent: "center" }}>
         <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: "rotate(-180deg)" }}>
-          <circle cx="70" cy="70" r="60" fill="none" stroke="var(--color-border-tertiary)" strokeWidth="12" />
+          <defs>
+            <linearGradient id="gauge-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="var(--accent-rose)" />
+              <stop offset="50%" stopColor="var(--accent-amber)" />
+              <stop offset="100%" stopColor="var(--accent-emerald)" />
+            </linearGradient>
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor={color} floodOpacity="0.4" />
+            </filter>
+          </defs>
+          {/* Fondo del arco */}
+          <circle cx="70" cy="70" r="60" fill="none" stroke="var(--color-background-secondary)" strokeWidth="10" strokeLinecap="round" />
+          {/* Arco activo con gradiente */}
           <circle 
             cx="70" 
             cy="70" 
             r="60" 
             fill="none" 
-            stroke={color} 
-            strokeWidth="12" 
+            stroke="url(#gauge-grad)" 
+            strokeWidth="10" 
+            strokeLinecap="round"
             strokeDasharray={`${Math.PI * 60}`}
             strokeDashoffset={`${Math.PI * 60 * (1 - probability)}`}
-            style={{ transition: "stroke-dashoffset 0.5s ease-out, stroke 0.5s ease-out" }}
+            style={{ transition: "stroke-dashoffset 0.5s ease-out" }}
           />
+          {/* Indicador / Knob en la punta del arco */}
+          <g transform={`rotate(${probability * 180} 70 70)`} style={{ transition: "transform 0.5s ease-out" }}>
+            <circle cx="10" cy="70" r="8" fill="#FFFFFF" stroke={color} strokeWidth="3" style={{ filter: "url(#glow)" }} />
+          </g>
         </svg>
         <div style={{ position: "absolute", bottom: 0, textAlign: "center" }}>
-          <div style={{ fontSize: 28, fontWeight: 900, color: color, lineHeight: 1 }}>{percentage}%</div>
-          <div style={{ fontSize: 9, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", marginTop: 2 }}>Éxito</div>
+          <div style={{ fontSize: 30, fontWeight: 900, color: color, lineHeight: 1, fontFamily: "var(--font-display)" }}>{percentage}%</div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Éxito</div>
         </div>
       </div>
     </div>
   );
 };
 
-window.UIComponents = { SidebarClock, Input, Select, Stat, SliderInput, RateBarChart, ProbabilityGauge };
+const MonteCarloSpectrum = ({ minVal, maxVal, expectedVal }) => {
+  const { fmt } = window;
+  const maxScale = Math.max(maxVal * 1.15, 10);
+  const getX = (val) => (val / maxScale) * 460 + 20; // 20px padding left/right
+  
+  const X1 = getX(minVal);
+  const X2 = getX(maxVal);
+  const Xe = getX(expectedVal);
+  
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16, background: "var(--color-background-primary)", borderRadius: 12, border: "1px solid var(--color-border-tertiary)", width: "100%", boxShadow: "var(--shadow-sm)" }}>
+      <div style={{ fontSize: 11, color: "var(--color-text-secondary)", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>
+        Espectro de Ahorro Neto UF (P10 - P90)
+      </div>
+      <div style={{ position: "relative", width: "100%" }}>
+        <svg viewBox="0 0 500 90" width="100%" height="90" style={{ display: "block", overflow: "visible" }}>
+          <defs>
+            <linearGradient id="spectrum-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="var(--accent-amber)" />
+              <stop offset="100%" stopColor="var(--accent-emerald)" />
+            </linearGradient>
+            <filter id="spectrum-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--accent-amber)" floodOpacity="0.25" />
+            </filter>
+          </defs>
+          {/* Eje de fondo */}
+          <line x1="20" y1="45" x2="480" y2="45" stroke="var(--color-background-secondary)" strokeWidth="4" strokeLinecap="round" />
+          <line x1="20" y1="45" x2="480" y2="45" stroke="var(--color-border-secondary)" strokeWidth="2" strokeDasharray="3 3" strokeLinecap="round" />
+          
+          {/* Límites de escala de fondo (0 y Max) */}
+          <line x1={getX(0)} y1="40" x2={getX(0)} y2="50" stroke="var(--color-border-primary)" strokeWidth="1" />
+          <text x={getX(0)} y="62" textAnchor="middle" fill="var(--color-text-tertiary)" fontSize="8" fontWeight="600">UF 0</text>
+          
+          <line x1={getX(maxScale)} y1="40" x2={getX(maxScale)} y2="50" stroke="var(--color-border-primary)" strokeWidth="1" />
+          <text x={getX(maxScale)} y="62" textAnchor="middle" fill="var(--color-text-tertiary)" fontSize="8" fontWeight="600">UF {Math.round(maxScale)}</text>
+          
+          {/* Rango flotante (Capsula de Confianza) */}
+          {X2 > X1 && (
+            <rect 
+              x={X1} 
+              y="39" 
+              width={X2 - X1} 
+              height="12" 
+              rx="6" 
+              fill="url(#spectrum-grad)" 
+              style={{ filter: "url(#spectrum-glow)", opacity: 0.9 }} 
+            />
+          )}
+          
+          {/* Marcadores P10 y P90 debajo */}
+          <text x={X1} y="74" textAnchor="middle" fill="var(--color-text-secondary)" fontSize="9" fontWeight="700">UF {fmt(minVal, 0)}</text>
+          <text x={X1} y="84" textAnchor="middle" fill="var(--color-text-tertiary)" fontSize="8" fontWeight="500">Peor Caso (P10)</text>
+          
+          <text x={X2} y="74" textAnchor="middle" fill="var(--color-text-secondary)" fontSize="9" fontWeight="700">UF {fmt(maxVal, 0)}</text>
+          <text x={X2} y="84" textAnchor="middle" fill="var(--color-text-tertiary)" fontSize="8" fontWeight="500">Mejor Caso (P90)</text>
+          
+          {/* Línea vertical de valor esperado */}
+          <line x1={Xe} y1="26" x2={Xe} y2="64" stroke="var(--accent-cyan)" strokeWidth="3" strokeLinecap="round" />
+          <circle cx={Xe} cy="45" r="5" fill="#FFFFFF" stroke="var(--accent-cyan)" strokeWidth="3.5" />
+          
+          {/* Valor Esperado Etiqueta arriba */}
+          <text x={Xe} y="16" textAnchor="middle" fill="var(--accent-cyan)" fontSize="10" fontWeight="900" style={{ letterSpacing: "0.02em" }}>
+            UF {fmt(expectedVal, 1)} (Esperado)
+          </text>
+        </svg>
+      </div>
+    </div>
+  );
+};
+
+window.UIComponents = { SidebarClock, Input, Select, Stat, SliderInput, RateBarChart, ProbabilityGauge, MonteCarloSpectrum };
 

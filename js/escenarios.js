@@ -2,7 +2,7 @@
 // Depende de: globals.js (fmt, fmtM), financial_logic.js
 
 const { fmt } = window;
-const { SliderInput, RateBarChart, ProbabilityGauge } = window.UIComponents;
+const { SliderInput, RateBarChart, ProbabilityGauge, MonteCarloSpectrum } = window.UIComponents;
 
 // ── ESCENARIO 1 (TASAS E INFLACIÓN) ────────────────────────────────────────────────────────
 const Escenario1 = ({ cr, saldoActual, mesesRestantes, interesesBase, pr, cuotaBase, valorUF, cae, inflacion, setInflacion, retornoInv, setRetornoInv }) => {
@@ -284,26 +284,10 @@ const Escenario2 = ({ cr, saldoActual, mesesRestantes, interesesBase, pr, cuotaB
             </div>
           </div>
 
-          <div className="spectrum-card">
-            <div className="spectrum-card-title">Espectro de Ahorro Neto UF (P10 - P90)</div>
-            <div className="spectrum-card-row">
-              <div className="spectrum-card-val-box left">
-                <div className="spectrum-card-num">UF {fmt(mcRango[0], 0)}</div>
-                <div className="spectrum-card-lbl">Peor Escenario</div>
-              </div>
-              <div className="spectrum-card-bar-wrapper">
-                <div className="spectrum-card-bar-bg">
-                  <div className="spectrum-card-bar-fill"></div>
-                </div>
-              </div>
-              <div className="spectrum-card-val-box right">
-                <div className="spectrum-card-num">UF {fmt(mcRango[1], 0)}</div>
-                <div className="spectrum-card-lbl">Mejor Escenario</div>
-              </div>
-            </div>
-            <div className="spectrum-card-footer">
-              Bajo un estrés de mercado del {volatilidad}% de desviación estándar.
-            </div>
+          <MonteCarloSpectrum minVal={mcRango[0]} maxVal={mcRango[1]} expectedVal={ahorroNeto} />
+
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 8, textAlign: "center", fontStyle: "italic" }}>
+            Bajo un estrés de mercado del {volatilidad}% de desviación estándar.
           </div>
         </div>
       </div>
