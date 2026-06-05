@@ -273,8 +273,21 @@ const FinancialLogic = {
         const flujoMensual = cuotaBase + seguros;
         const calcPV = (flujo, n, r) => r === 0 ? flujo * n : flujo * (1 - Math.pow(1 + r, -n)) / r;
 
+        // Valor Presente de los pasivos del Contrato Base original (sin prepagos)
         const vpContrato = calcPV(flujoMensual, mesesRestantes, rhoMensual);
-        const vpPrepago = sim.totalPrepagado + sim.totalMultas + calcPV(sim.nuevaCuota + seguros, sim.mesesReales, rhoMensual);
+        
+        // Calcular el Valor Presente exacto de la estrategia descontando mes a mes
+        // todos los egresos reales (cuota + seguros + prepago + multas) en su mes correspondiente.
+        let vpPrepago = 0;
+        if (rhoMensual === 0) {
+            vpPrepago = sim.detalleMensual.reduce((sum, mes) => sum + mes.dividendoTotal + mes.prepago + mes.multa, 0);
+        } else {
+            vpPrepago = sim.detalleMensual.reduce((sum, mes) => {
+                const flujoMes = mes.dividendoTotal + mes.prepago + mes.multa;
+                return sum + (flujoMes / Math.pow(1 + rhoMensual, mes.mes));
+            }, 0);
+        }
+        
         const ahorroVPN = vpContrato - vpPrepago;
 
         return {
