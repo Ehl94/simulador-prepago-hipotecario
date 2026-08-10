@@ -960,17 +960,6 @@ function App() {
                         </p>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div className="segmented-control">
-                          {[{ key: "tabla", label: "Tabla" }, { key: "grafico", label: "Gráfico" }].map(v => (
-                            <button
-                              key={v.key}
-                              onClick={() => setDetalleVista(v.key)}
-                              className={`segmented-control-btn ${detalleVista === v.key ? 'active' : ''}`}
-                            >
-                              {v.label}
-                            </button>
-                          ))}
-                        </div>
                         {detalleVista === "tabla" && (
                           <button
                             onClick={() => window.Tabla.exportarTablaCSV({
@@ -990,21 +979,32 @@ function App() {
                               gap: 6,
                               padding: "9px 14px",
                               borderRadius: 8,
-                              border: "1px solid var(--color-border-secondary)",
-                              background: "var(--color-background-secondary)",
-                              color: "var(--color-text-secondary)",
+                              border: "1px solid rgba(45, 179, 158, 0.35)",
+                              background: "rgba(45, 179, 158, 0.12)",
+                              color: "#1E7A6B",
                               fontSize: 11,
                               fontWeight: 700,
                               cursor: "pointer",
                               fontFamily: "var(--font-body)",
                               transition: "all 0.2s ease"
                             }}
-                            onMouseOver={(e) => { e.currentTarget.style.color = "var(--color-text-primary)"; }}
-                            onMouseOut={(e) => { e.currentTarget.style.color = "var(--color-text-secondary)"; }}
+                            onMouseOver={(e) => { e.currentTarget.style.background = "rgba(45, 179, 158, 0.2)"; }}
+                            onMouseOut={(e) => { e.currentTarget.style.background = "rgba(45, 179, 158, 0.12)"; }}
                           >
                             <span style={{ fontSize: 13 }}>⬇</span> CSV
                           </button>
                         )}
+                        <div className="segmented-control">
+                          {[{ key: "tabla", label: "Tabla" }, { key: "grafico", label: "Gráfico" }].map(v => (
+                            <button
+                              key={v.key}
+                              onClick={() => setDetalleVista(v.key)}
+                              className={`segmented-control-btn ${detalleVista === v.key ? 'active' : ''}`}
+                            >
+                              {v.label}
+                            </button>
+                          ))}
+                        </div>
                         <div className="segmented-control">
                           {["UF", "CLP"].map(m => (
                             <button
