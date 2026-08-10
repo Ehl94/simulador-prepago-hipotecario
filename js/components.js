@@ -246,5 +246,106 @@ const MonteCarloSpectrum = ({ minVal, maxVal, expectedVal }) => {
   );
 };
 
-window.UIComponents = { SidebarClock, Input, Select, Stat, SliderInput, RateBarChart, ProbabilityGauge, MonteCarloSpectrum };
+const CollapsibleCard = ({ title, icon, accentColor, borderColor, collapsed, onToggle, children }) => {
+  const btnStyle = {
+    background: "none",
+    border: "1px solid var(--color-border-secondary)",
+    borderRadius: 6,
+    padding: "4px 6px",
+    cursor: "pointer",
+    color: "var(--color-text-tertiary)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    lineHeight: 0,
+  };
+
+  if (collapsed) {
+    return (
+      <div
+        className="glass-card"
+        style={{
+          padding: "12px 10px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          width: 44,
+          minWidth: 44,
+          gap: 10,
+          ...(borderColor ? { borderColor } : {})
+        }}
+      >
+        <button onClick={onToggle} title="Expandir" style={btnStyle}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+        <div style={{
+          writingMode: "vertical-rl",
+          fontSize: 11,
+          fontWeight: 700,
+          color: accentColor || "#3A3935",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          whiteSpace: "nowrap",
+          userSelect: "none",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 6,
+          marginTop: 4,
+        }}>
+          {icon && <span style={{ fontSize: 15 }}>{icon}</span>}
+          {title}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="glass-card"
+      style={{
+        padding: 16,
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+        width: "100%",
+        ...(borderColor ? { borderColor } : {})
+      }}
+    >
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingBottom: 10,
+        borderBottom: "0.5px solid var(--color-border-tertiary)",
+      }}>
+        <div style={{
+          fontFamily: "var(--font-display)",
+          fontSize: 13,
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          color: accentColor || "#3A3935",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}>
+          {icon && <span style={{ fontSize: 18 }}>{icon}</span>}
+          {title}
+        </div>
+        <button onClick={onToggle} title="Colapsar" style={btnStyle}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+};
+
+window.UIComponents = { SidebarClock, Input, Select, Stat, SliderInput, RateBarChart, ProbabilityGauge, MonteCarloSpectrum, CollapsibleCard };
 

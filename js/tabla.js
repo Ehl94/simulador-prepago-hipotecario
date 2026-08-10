@@ -103,5 +103,49 @@ const TablaAmortizacion = ({ detalle, historial = [], mesesPagados = 0, startYea
   );
 };
 
-window.Tabla = { TablaAmortizacion };
+// ── EXPORTAR TABLA A CSV ─────────────────────────────────────────────────────
+const exportarTablaCSV = ({ detalle, historial = [], mesesPagados = 0, startYear, startMonth, seguros, moneda = "UF", valorUF = 38000 }) => {
+  const todasLasFilas = [
+    ...historial,
+    ...(detalle || []).map(d => ({ ...d, mes: mesesPagados + d.mes }))
+  ];
+
+  const getCalYear = (mesAbsoluto) => {
+    if (!startYear) return Math.floor((mesAbsoluto - 1) / 12) + 1;
+    const d = new Date(startYear, (startMonth || 1) - 1);
+    d.setMonth(d.getMonth() + mesAbsoluto - 1);
+    return d.getFullYear();
+  };
+
+  const val = (v) => moneda === "CLP" ? Math.round((v || 0) * valorUF) : Number((v || 0).toFixed(2));
+
+  const headers = ["Mes", "Año", `Dividendo Total (${moneda})`, `Interés (${moneda})`, `Amortización (${moneda})`, `Prepago (${moneda})`, `Multa (${moneda})`, `Saldo Final (${moneda})`];
+
+  const rows = todasLasFilas.map(d => {
+    const dividendo = d.dividendoTotal ?? ((d.cuotaBase || 0) + (seguros || 0));
+    return [
+      d.mes,
+      getCalYear(d.mes),
+      val(dividendo),
+      val(d.interes),
+      val(d.amortizacion),
+      d.prepago > 0 ? val(d.prepago) : 0,
+      d.multa > 0 ? val(d.multa) : 0,
+      val(d.saldo)
+    ];
+  });
+
+  const csvContent = [headers, ...rows].map(r => r.join(";")).join("\r\n");
+  const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `tabla_amortizacion_${moneda}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+window.Tabla = { TablaAmortizacion, exportarTablaCSV };
 

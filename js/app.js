@@ -4,7 +4,7 @@
 const { useState, useMemo, useEffect } = React;
 const { fmt, fmtM, fmtCLP, costosPrepagoOpciones } = window;
 
-const { SidebarClock, Input, Select, Stat, SliderInput, RateBarChart, ProbabilityGauge } = window.UIComponents;
+const { SidebarClock, Input, Select, Stat, SliderInput, RateBarChart, ProbabilityGauge, CollapsibleCard } = window.UIComponents;
 const { GraficoSaldo, GraficoCuotas, GraficoEscenarios } = window.Charts;
 const { Escenario1, Escenario2 } = window.Escenarios;
 const { TablaAmortizacion } = window.Tabla;
@@ -49,14 +49,15 @@ function App() {
     detalleVista: "tabla",
     tributarioVista: "resumen",
     monedaTabla: "UF",
-    showPrintView: false
+    showPrintView: false,
+    collapsedCards: { credito: false, estrategia: false, macro: false }
   });
 
   // Alias y destructuring para mantener compatibilidad
   const cr = credito;
   const pr = estrategia;
   const { inflacion, retornoInv, rentaBruta, valorUF, valorUTM, volatilidad } = macro;
-  const { tab, detalleVista, tributarioVista, monedaTabla, showPrintView } = ui;
+  const { tab, detalleVista, tributarioVista, monedaTabla, showPrintView, collapsedCards } = ui;
 
   // Setters que imitan el comportamiento original
   const setCr = (newCr) => setCredito(newCr);
@@ -72,6 +73,7 @@ function App() {
   const setValorUF = (v) => setMacro(p => ({ ...p, valorUF: v }));
   const setValorUTM = (v) => setMacro(p => ({ ...p, valorUTM: v }));
   const setVolatilidad = (v) => setMacro(p => ({ ...p, volatilidad: v }));
+  const toggleCard = (id) => setUi(p => ({ ...p, collapsedCards: { ...p.collapsedCards, [id]: !p.collapsedCards[id] } }));
 
 
   useEffect(() => {
@@ -348,57 +350,60 @@ function App() {
                   }
 
                   return (
-                    <div className="animate-fade grid-2" style={{ gap: 16 }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                        <div className="glass-card" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-                          <div className="section-title">
-                            <span style={{ fontSize: 18 }}>🏦</span> Datos del Crédito
-                          </div>
-                          
-                          <Input 
-                            label="Monto original" 
-                            value={cr.capital} 
-                            onChange={setC("capital")} 
-                            prefix="UF" 
-                            min={1} 
+                    <div className="animate-fade" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                      {/* Columna izquierda — se estrecha al colapsar */}
+                      <div style={{
+                        display: "flex", flexDirection: "column", gap: 16,
+                        flex: collapsedCards.credito ? "0 0 auto" : "1",
+                        alignItems: "flex-start",
+                        minWidth: 0,
+                      }}>
+                        <CollapsibleCard
+                          title="Datos del Crédito"
+                          icon="🏦"
+                          collapsed={collapsedCards.credito}
+                          onToggle={() => toggleCard('credito')}
+                        >
+                          <Input
+                            label="Monto original"
+                            value={cr.capital}
+                            onChange={setC("capital")}
+                            prefix="UF"
+                            min={1}
                             sublabel={`Equivale a: ${clpEquivalent(cr.capital)}`}
                           />
-
-                          <SliderInput 
-                            label="Tasa (TNA)" 
-                            value={cr.tna} 
-                            onChange={setC("tna")} 
-                            min={1.0} 
-                            max={12.0} 
-                            step={0.1} 
-                            suffix="%" 
+                          <SliderInput
+                            label="Tasa (TNA)"
+                            value={cr.tna}
+                            onChange={setC("tna")}
+                            min={1.0}
+                            max={12.0}
+                            step={0.1}
+                            suffix="%"
                           />
-
-                          <SliderInput 
-                            label="Plazo total" 
-                            value={cr.plazo} 
-                            onChange={handlePlazoChange} 
-                            min={60} 
-                            max={480} 
-                            step={12} 
-                            suffix=" meses" 
+                          <SliderInput
+                            label="Plazo total"
+                            value={cr.plazo}
+                            onChange={handlePlazoChange}
+                            min={60}
+                            max={480}
+                            step={12}
+                            suffix=" meses"
                             sublabel={`Equivale a: ${Math.round(cr.plazo / 12)} Años`}
                           />
-
-                          <SliderInput 
-                            label="Meses pagados" 
-                            value={cr.mesesPagados} 
-                            onChange={handleMesesPagadosChange} 
-                            min={0} 
-                            max={+cr.plazo} 
-                            step={1} 
-                            suffix=" meses" 
+                          <SliderInput
+                            label="Meses pagados"
+                            value={cr.mesesPagados}
+                            onChange={handleMesesPagadosChange}
+                            min={0}
+                            max={+cr.plazo}
+                            step={1}
+                            suffix=" meses"
                           />
-
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                            <Select 
-                              label="Mes de inicio" 
-                              value={cr.fechaInicioMonth} 
+                            <Select
+                              label="Mes de inicio"
+                              value={cr.fechaInicioMonth}
                               onChange={v => updateFechaInicio(cr.fechaInicioYear, Number(v))}
                               options={[
                                 { value: 1, label: "Enero" },
@@ -415,9 +420,9 @@ function App() {
                                 { value: 12, label: "Diciembre" }
                               ]}
                             />
-                            <Select 
-                              label="Año de inicio" 
-                              value={cr.fechaInicioYear} 
+                            <Select
+                              label="Año de inicio"
+                              value={cr.fechaInicioYear}
                               onChange={v => updateFechaInicio(Number(v), cr.fechaInicioMonth)}
                               options={Array.from({ length: 40 }, (_, i) => {
                                 const y = new Date().getFullYear() - i;
@@ -425,104 +430,106 @@ function App() {
                               })}
                             />
                           </div>
-
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
-                            <Input 
-                              label="Coste de Seguros" 
-                              value={cr.seguros} 
-                              onChange={setC("seguros")} 
-                              suffix="UF" 
-                              step={0.01} 
+                            <Input
+                              label="Coste de Seguros"
+                              value={cr.seguros}
+                              onChange={setC("seguros")}
+                              suffix="UF"
+                              step={0.01}
                               sublabel={`Mensual · ${clpEquivalent(cr.seguros)}`}
                             />
-                            <Select 
-                              label="Costo Prepago" 
-                              value={cr.costoPrepago} 
+                            <Select
+                              label="Costo Prepago"
+                              value={cr.costoPrepago}
                               onChange={setC("costoPrepago")}
-                              options={costosPrepagoOpciones} 
+                              options={costosPrepagoOpciones}
                             />
                           </div>
-                        </div>
+                        </CollapsibleCard>
                       </div>
 
-                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                        <div className="glass-card" style={{ borderColor: "var(--accent-amber)", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-                          <div className="section-title" style={{ color: "var(--accent-amber)" }}>
-                            <span style={{ fontSize: 18 }}>💸</span> Tu Estrategia de Prepago
-                          </div>
-
-                          <Input 
-                            label="Monto del Prepago" 
-                            value={pr.monto} 
-                            onChange={setP("monto")} 
-                            prefix="UF" 
+                      {/* Columna derecha */}
+                      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16, alignItems: "flex-start" }}>
+                        <CollapsibleCard
+                          title="Tu Estrategia de Prepago"
+                          icon="💸"
+                          accentColor="var(--accent-amber)"
+                          borderColor="var(--accent-amber)"
+                          collapsed={collapsedCards.estrategia}
+                          onToggle={() => toggleCard('estrategia')}
+                        >
+                          <Input
+                            label="Monto del Prepago"
+                            value={pr.monto}
+                            onChange={setP("monto")}
+                            prefix="UF"
                             sublabel={`Equivale a: ${clpEquivalent(pr.monto)} · Mínimo legal (5%): UF ${minPrepagoLegal}`}
                           />
-
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                            <Select 
-                              label="Frecuencia" 
-                              value={pr.frecuencia} 
+                            <Select
+                              label="Frecuencia"
+                              value={pr.frecuencia}
                               onChange={setP("frecuencia")}
                               options={[
                                 { value: "una_vez", label: "Una vez" },
                                 { value: "mensual", label: "Mensual" },
                                 { value: "semestral", label: "Semestral" },
                                 { value: "anual", label: "Anual" }
-                              ]} 
+                              ]}
                             />
-                            <Select 
-                              label="Destino del Prepago" 
-                              value={pr.destino} 
+                            <Select
+                              label="Destino del Prepago"
+                              value={pr.destino}
                               onChange={setP("destino")}
                               options={[
                                 { value: "plazo", label: "Bajar Plazo" },
                                 { value: "cuota", label: "Bajar Cuota" }
-                              ]} 
+                              ]}
                             />
                           </div>
-
-                          <SliderInput 
-                            label="Inicia en mes" 
-                            value={pr.mesInicio} 
-                            onChange={handleMesInicioChange} 
-                            min={+cr.mesesPagados + 1} 
-                            max={+cr.plazo} 
-                            step={1} 
-                            suffix=" meses" 
+                          <SliderInput
+                            label="Inicia en mes"
+                            value={pr.mesInicio}
+                            onChange={handleMesInicioChange}
+                            min={+cr.mesesPagados + 1}
+                            max={+cr.plazo}
+                            step={1}
+                            suffix=" meses"
                             sublabel={`Equivale a la cuota de: ${fechaPrepagoStr || 'cargando...'}`}
                           />
-                        </div>
+                        </CollapsibleCard>
 
-                        <div className="glass-card" style={{ borderColor: "var(--color-border-secondary)", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-                          <div className="section-title" style={{ color: "var(--accent-indigo)" }}>
-                            <span style={{ fontSize: 18 }}>⚙️</span> Macroeconómicos
-                          </div>
-                          
-                          <SliderInput 
-                            label="Inflación Proyectada (π)" 
-                            value={inflacion} 
-                            onChange={setInflacion} 
-                            min={0.0} 
-                            max={15.0} 
-                            step={0.1} 
-                            suffix="%" 
+                        <CollapsibleCard
+                          title="Macroeconómicos"
+                          icon="⚙️"
+                          accentColor="var(--accent-indigo)"
+                          borderColor="var(--color-border-secondary)"
+                          collapsed={collapsedCards.macro}
+                          onToggle={() => toggleCard('macro')}
+                        >
+                          <SliderInput
+                            label="Inflación Proyectada (π)"
+                            value={inflacion}
+                            onChange={setInflacion}
+                            min={0.0}
+                            max={15.0}
+                            step={0.1}
+                            suffix="%"
                           />
-
-                          <SliderInput 
-                            label="Retorno Inversión (ρ)" 
-                            value={retornoInv} 
-                            onChange={setRetornoInv} 
-                            min={0.0} 
-                            max={20.0} 
-                            step={0.1} 
-                            suffix="%" 
+                          <SliderInput
+                            label="Retorno Inversión (ρ)"
+                            value={retornoInv}
+                            onChange={setRetornoInv}
+                            min={0.0}
+                            max={20.0}
+                            step={0.1}
+                            suffix="%"
                           />
-
                           <div style={{ fontSize: 11, color: "var(--color-text-secondary)", lineHeight: 1.4 }}>
                             *Variables usadas estocásticamente en los modelos de Arbitraje y VPN.
                           </div>
-                        </div>
+                        </CollapsibleCard>
                       </div>
                     </div>
                   );
@@ -964,6 +971,40 @@ function App() {
                             </button>
                           ))}
                         </div>
+                        {detalleVista === "tabla" && (
+                          <button
+                            onClick={() => window.Tabla.exportarTablaCSV({
+                              detalle: sim.detalleMensual,
+                              historial: historialPagado,
+                              mesesPagados: +cr.mesesPagados,
+                              startYear: creditStart.year,
+                              startMonth: creditStart.month,
+                              seguros: +cr.seguros,
+                              moneda: monedaTabla,
+                              valorUF
+                            })}
+                            title="Exportar tabla a CSV"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              padding: "9px 14px",
+                              borderRadius: 8,
+                              border: "1px solid var(--color-border-secondary)",
+                              background: "var(--color-background-secondary)",
+                              color: "var(--color-text-secondary)",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              fontFamily: "var(--font-body)",
+                              transition: "all 0.2s ease"
+                            }}
+                            onMouseOver={(e) => { e.currentTarget.style.color = "var(--color-text-primary)"; }}
+                            onMouseOut={(e) => { e.currentTarget.style.color = "var(--color-text-secondary)"; }}
+                          >
+                            <span style={{ fontSize: 13 }}>⬇</span> CSV
+                          </button>
+                        )}
                         <div className="segmented-control">
                           {["UF", "CLP"].map(m => (
                             <button
