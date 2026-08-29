@@ -8,7 +8,7 @@ A diferencia de los simuladores bancarios tradicionales, esta herramienta ofrece
 
 ## 🚀 Características Principales
 
-*   🎛️ **Controles Interactivos Premium (Fase 4 y 6)**: Sliders homogéneos de `42px` y inputs numéricos sincronizados bidireccionalmente. Incluye selector de fecha de inicio de crédito sincronizado con los meses transcurridos y etiquetas dinámicas del mínimo legal chileno (5% del saldo insoluto).
+*   🎛️ **Controles Interactivos: Incluye selector de fecha de inicio de crédito sincronizado con los meses transcurridos y etiquetas dinámicas del mínimo legal chileno (5% del saldo insoluto).
 *   💵 **Soporte UF/CLP Dinámico**: Conversión automática y visualización en tiempo real de valores en Pesos Chilenos (CLP) basados en el valor diario de la UF.
 *   🔍 **Análisis de Arbitraje de Tasas (Escenario 1)**: Criterio de Fisher Modificado para calcular la inflación exacta de equilibrio (*break-even* $\pi^*$) donde amortizar deuda equivale a invertir en pesos (paridad nominal vs. real). Cuenta con un gráfico de barras comparativo (`RateBarChart`).
 *   ⚖️ **Valoración & Riesgo Estocástico (Escenario 2)**:
@@ -16,7 +16,6 @@ A diferencia de los simuladores bancarios tradicionales, esta herramienta ofrece
     *   **Simulación Monte Carlo Estabilizada**: Proyección determinista basada en sigmoides ante estrés de mercado (volatilidad $\sigma$), graficando el espectro de ahorros P10-P90 y un indicador de aguja semicircular (`ProbabilityGauge`) interactivo.
 *   📈 **Evolución Detallada**: Gráficos interactivos de saldos y dividendos construidos sobre **Chart.js** y **react-chartjs-2**, junto con una tabla completa de amortización mensual (conmutador UF/CLP).
 *   💼 **Beneficio Tributario (Art. 55 bis)**: Módulo integrado que calcula la rebaja de impuestos sobre los intereses pagados, ajustándose según tramos de renta bruta y límites en Unidades Tributarias Anuales (UTA).
-*   📄 **Reporte PDF McKinsey Style**: Generador automático de reportes ejecutivos en PDF listos para imprimir, estructurados con la estética corporativa de consultoría estratégica.
 
 ---
 
